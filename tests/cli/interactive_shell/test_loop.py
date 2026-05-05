@@ -76,6 +76,23 @@ def test_slash_completer_filters_by_prefix() -> None:
     assert [completion.text for completion in completions] == ["/list"]
 
 
+def test_slash_completer_keeps_exact_match_visible_and_highlighted() -> None:
+    completions = list(
+        loop._build_slash_completer().get_completions(
+            Document("/list"),
+            CompleteEvent(text_inserted=True),
+        )
+    )
+
+    assert len(completions) == 1
+    completion = completions[0]
+    assert completion.text == "/list "
+    assert completion.start_position == -len("/list")
+    assert completion.display_text == "/list"
+    assert completion.style == loop._EXACT_SLASH_COMMAND_STYLE
+    assert completion.selected_style == loop._EXACT_SLASH_COMMAND_STYLE
+
+
 def test_slash_completer_ignores_subcommand_text() -> None:
     completions = list(
         loop._build_slash_completer().get_completions(

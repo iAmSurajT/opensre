@@ -33,6 +33,8 @@ from app.cli.interactive_shell.theme import (
     PROMPT_ACCENT_ANSI,
 )
 
+_EXACT_SLASH_COMMAND_STYLE = f"{OPENCLAW_ORANGE} bg:#241913"
+
 
 class SlashCommandCompleter(Completer):
     """Show slash-command previews as soon as the user types `/`."""
@@ -48,12 +50,16 @@ class SlashCommandCompleter(Completer):
 
         needle = text.lower()
         for command in SLASH_COMMANDS.values():
-            if command.name.lower().startswith(needle):
+            command_name = command.name
+            exact_match = command_name.lower() == needle
+            if command_name.lower().startswith(needle):
                 yield Completion(
-                    command.name,
+                    f"{command_name} " if exact_match else command_name,
                     start_position=-len(text),
-                    display=command.name,
+                    display=command_name,
                     display_meta=command.help_text,
+                    style=_EXACT_SLASH_COMMAND_STYLE if exact_match else "",
+                    selected_style=_EXACT_SLASH_COMMAND_STYLE if exact_match else "",
                 )
 
 
