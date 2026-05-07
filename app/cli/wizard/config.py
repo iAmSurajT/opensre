@@ -264,6 +264,12 @@ def _kimi_adapter_factory() -> LLMCLIAdapter:
     return KimiAdapter()
 
 
+def _copilot_adapter_factory() -> LLMCLIAdapter:
+    from app.integrations.llm_cli.copilot import CopilotAdapter
+
+    return CopilotAdapter()
+
+
 KIMI_MODELS = (
     ModelOption(
         value="",
@@ -272,6 +278,17 @@ KIMI_MODELS = (
     ModelOption(value="kimi-k2-thinking-turbo", label="kimi-k2-thinking-turbo"),
     ModelOption(value="kimi-k2.5", label="kimi-k2.5"),
     ModelOption(value="kimi-k2.6", label="kimi-k2.6"),
+)
+
+
+# Empty value means "no --model" so Copilot CLI uses its configured default model.
+COPILOT_MODELS = (
+    ModelOption(
+        value="",
+        label="CLI default (no --model; use Copilot CLI configured model)",
+    ),
+    ModelOption(value="claude-sonnet-4.6", label="Claude Sonnet 4.6 (via Copilot)"),
+    ModelOption(value="gpt-5.2", label="GPT-5.2 (via Copilot)"),
 )
 
 
@@ -412,6 +429,18 @@ SUPPORTED_PROVIDERS = (
         credential_kind="cli",
         credential_secret=False,
         adapter_factory=_kimi_adapter_factory,
+    ),
+    ProviderOption(
+        value="copilot",
+        label="GitHub Copilot CLI",
+        group="Local CLI providers",
+        api_key_env="",
+        model_env="COPILOT_MODEL",
+        default_model="",
+        models=COPILOT_MODELS,
+        credential_kind="cli",
+        credential_secret=False,
+        adapter_factory=_copilot_adapter_factory,
     ),
     ProviderOption(
         value="ollama",

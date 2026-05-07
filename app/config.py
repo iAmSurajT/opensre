@@ -133,6 +133,7 @@ LLMProvider = Literal[
     "gemini-cli",
     "opencode",
     "kimi",
+    "copilot",
 ]
 
 
@@ -187,6 +188,7 @@ class LLMSettings(StrictConfigModel):
             "gemini-cli",
             "opencode",
             "kimi",
+            "copilot",
         )
         if provider in valid_providers:
             return provider
@@ -210,6 +212,7 @@ class LLMSettings(StrictConfigModel):
             "gemini-cli",
             "opencode",
             "kimi",
+            "copilot",
         ):
             return self  # ollama: local; bedrock: IAM; CLI providers: vendor auth
         provider_to_key = {

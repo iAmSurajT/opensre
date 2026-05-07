@@ -118,3 +118,18 @@ def test_llm_settings_from_env_gemini_cli_without_api_key(monkeypatch) -> None:
     settings = LLMSettings.from_env()
 
     assert settings.provider == "gemini-cli"
+
+
+def test_llm_settings_from_env_copilot_without_api_key(monkeypatch) -> None:
+    """CLI-backed Copilot CLI: vendor auth, no hosted API key required."""
+    monkeypatch.setenv("LLM_PROVIDER", "copilot")
+    monkeypatch.setattr("app.config.resolve_llm_api_key", lambda _: "")
+
+    settings = LLMSettings.from_env()
+
+    assert settings.provider == "copilot"
+
+
+def test_llm_settings_copilot_provider_accepted() -> None:
+    settings = LLMSettings.model_validate({"provider": "copilot"})
+    assert settings.provider == "copilot"

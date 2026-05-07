@@ -57,6 +57,7 @@ _SAFE_SUBPROCESS_ENV_PREFIXES = (
     "GOOGLE_",
     "OPENCODE_",
     "KIMI_",
+    "COPILOT_",
 )
 
 

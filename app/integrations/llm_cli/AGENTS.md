@@ -17,6 +17,7 @@ Use this package when adding a new **non-interactive** LLM that shells out to a 
 | `codex.py`           | Reference adapter: binary resolution, `codex exec`, probe via `--version` + `login status`. |
 | `opencode.py`        | Multi-provider CLI: `--version`, then `opencode auth list` (see `_parse_opencode_auth_list_output`). |
 | `kimi.py`            | `kimi --print` path: `--version`, `kimi login status`, then env/config.toml fallback (`KIMI_API_KEY`). |
+| `copilot.py`         | `copilot -p` path: `--version`, then check `$COPILOT_HOME` (default `~/.copilot`) for stored credentials, with `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`/`GITHUB_TOKEN` as auth fallbacks. |
 
 
 ## Wiring a new provider
@@ -105,12 +106,13 @@ out or fails to spawn (`logged_in=None`), so a configured API key still counts a
 
 Shared HTTP/API overrides live in `env_overrides.py`: use `nonempty_env_values(...)` with
 `OPENAI_PLATFORM_ENV_KEYS` (Codex), `HTTP_LLM_PROVIDER_ENV_KEYS` (OpenCode),
-`ANTHROPIC_CLI_ENV_KEYS` (Claude Code), or `CURSOR_CLI_ENV_KEYS` (Cursor Agent headless API key).
+`ANTHROPIC_CLI_ENV_KEYS` (Claude Code), `CURSOR_CLI_ENV_KEYS` (Cursor Agent headless API key),
+or `COPILOT_CLI_ENV_KEYS` (Copilot CLI token fallbacks: `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`).
 Extend those tuples when you add a matching API-key env to `LLMSettings`.
 
 **Kimi** does not use those tuples today: OAuth/API material is covered by forwarding any `KIMI_*` keys via `_SAFE_SUBPROCESS_ENV_PREFIXES`; `KimiAdapter.build()` uses `CLIInvocation(env=None)` and relies on that allowlist.
 
-The current prefix allowlist includes `CODEX_`, `CURSOR_`, `CLAUDE_`, `OPENCODE_`, `KIMI_`, and locale keys (`LC_`).
+The current prefix allowlist includes `CODEX_`, `CURSOR_`, `CLAUDE_`, `OPENCODE_`, `KIMI_`, `COPILOT_`, and locale keys (`LC_`).
 
 **If your CLI reads custom env vars** (e.g. `GEMINI_*`) you must add the
 relevant prefix to `_SAFE_SUBPROCESS_ENV_PREFIXES` in `subprocess_env.py`, otherwise the

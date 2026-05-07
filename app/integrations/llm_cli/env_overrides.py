@@ -41,6 +41,12 @@ ANTHROPIC_CLI_ENV_KEYS: Final[tuple[str, ...]] = (
 
 CURSOR_CLI_ENV_KEYS: Final[tuple[str, ...]] = ("CURSOR_API_KEY",)
 
+COPILOT_CLI_ENV_KEYS: Final[tuple[str, ...]] = (
+    "COPILOT_GITHUB_TOKEN",
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+)
+
 
 def nonempty_env_values(keys: tuple[str, ...]) -> dict[str, str]:
     """Return ``{name: value}`` for keys with non-empty stripped values in ``os.environ``."""
