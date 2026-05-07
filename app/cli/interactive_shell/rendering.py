@@ -45,13 +45,35 @@ def status_style(status: str) -> str:
 # MCP-type services are rendered separately under `/list mcp` so the default
 # `/list integrations` view stays focused on alert-source / data integrations.
 _MCP_SERVICES = frozenset({"github", "openclaw"})
+_ACTIVE_INTEGRATION_STATUSES = frozenset({"configured", "healthy", "ok", "passed"})
+_MISCONFIGURED_INTEGRATION_STATUSES = frozenset({"failed"})
 
 
-def render_integrations_table(console: Console, results: list[dict[str, str]]) -> None:
+def _has_configured_source(row: dict[str, str]) -> bool:
+    source = row.get("source", "").strip()
+    return bool(source and source != "-")
+
+
+def _is_active_or_misconfigured_integration(row: dict[str, str]) -> bool:
+    status = row.get("status", "").strip().lower()
+    if status in _ACTIVE_INTEGRATION_STATUSES | _MISCONFIGURED_INTEGRATION_STATUSES:
+        return True
+    return status == "missing" and _has_configured_source(row)
+
+
+def render_integrations_table(
+    console: Console,
+    results: list[dict[str, str]],
+    *,
+    show_inactive: bool = False,
+) -> None:
     rows = [r for r in results if r.get("service") not in _MCP_SERVICES]
+    if not show_inactive:
+        rows = [r for r in rows if _is_active_or_misconfigured_integration(r)]
     if not rows:
         console.print(
-            f"[{TEXT_DIM}]no integrations configured.  try `opensre onboard` to add one.[/]"
+            f"[{TEXT_DIM}]no active or misconfigured integrations.  "
+            "try `opensre onboard` to add one.[/]"
         )
         return
     table = repl_table(title="Integrations", title_style=TERMINAL_ACCENT_BOLD)
@@ -70,10 +92,17 @@ def render_integrations_table(console: Console, results: list[dict[str, str]]) -
     console.print(table)
 
 
-def render_mcp_table(console: Console, results: list[dict[str, str]]) -> None:
+def render_mcp_table(
+    console: Console,
+    results: list[dict[str, str]],
+    *,
+    show_inactive: bool = False,
+) -> None:
     rows = [r for r in results if r.get("service") in _MCP_SERVICES]
+    if not show_inactive:
+        rows = [r for r in rows if _is_active_or_misconfigured_integration(r)]
     if not rows:
-        console.print(f"[{TEXT_DIM}]no MCP servers configured.[/]")
+        console.print(f"[{TEXT_DIM}]no active or misconfigured MCP servers.[/]")
         return
     table = repl_table(title="MCP servers", title_style=TERMINAL_ACCENT_BOLD)
     table.add_column("server", style="bold")

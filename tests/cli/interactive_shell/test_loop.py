@@ -237,20 +237,28 @@ def test_completion_menu_current_item_uses_highlight_style() -> None:
     # Design-system roles (hex without leading #, uppercase as prompt_toolkit stores them):
     #   ACCENT_SOFT (#5EF0E8) → slash-command token
     #   PRIMARY     (#1AFF8C) → currently-selected completion entry
-    #   SURFACE     (#111811) → menu background (inset panel role)
+    #   DEFAULT     → dropdown surface and scrollbar should not paint a backdrop
     style = loop._build_prompt_style()
     attrs = style.get_attrs_for_style_str("class:repl-slash-command")
 
     assert attrs.color == "5EF0E8"  # ACCENT_SOFT
-    assert attrs.bgcolor == "2c1e14"  # warm dark bg used for slash-command token
+    assert attrs.bgcolor == "default"
+    assert attrs.reverse is False
     assert attrs.bold is True
 
     attrs_menu = style.get_attrs_for_style_str("class:completion-menu.completion.current")
 
     assert attrs_menu.color == "1AFF8C"  # PRIMARY
-    assert attrs_menu.bgcolor == "2c1e14"  # warm dark bg
+    assert attrs_menu.bgcolor == "default"
     assert attrs_menu.reverse is False
     assert attrs_menu.bold is True
+
+    attrs_dropdown = style.get_attrs_for_style_str("class:completion-menu")
+    attrs_scrollbar = style.get_attrs_for_style_str("class:scrollbar.button")
+
+    assert attrs_dropdown.bgcolor == "default"
+    assert attrs_scrollbar.bgcolor == "default"
+    assert attrs_scrollbar.reverse is False
 
 
 def test_shell_completer_path_completion_honors_mixed_case_prefix(tmp_path: Path) -> None:

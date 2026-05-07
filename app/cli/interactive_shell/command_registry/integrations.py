@@ -21,12 +21,12 @@ def _cmd_integrations(session: ReplSession, console: Console, args: list[str]) -
     sub = (args[0].lower() if args else "list").strip()
 
     if sub in ("list", "ls"):
-        render_integrations_table(console, repl_data.load_verified_integrations())
+        render_integrations_table(console, repl_data.load_list_integrations())
         return True
 
     if sub == "verify":
         results = repl_data.load_verified_integrations()
-        render_integrations_table(console, results)
+        render_integrations_table(console, results, show_inactive=True)
         failed = [r for r in results if r.get("status") in ("failed", "missing")]
         if failed:
             console.print(f"[yellow]{len(failed)} integration(s) need attention.[/yellow]")
@@ -71,7 +71,7 @@ def _cmd_mcp(_session: ReplSession, console: Console, args: list[str]) -> bool:
     sub = (args[0].lower() if args else "list").strip()
 
     if sub in ("list", "ls"):
-        render_mcp_table(console, repl_data.load_verified_integrations())
+        render_mcp_table(console, repl_data.load_list_integrations())
         return True
 
     if sub == "connect":
@@ -97,11 +97,11 @@ def _cmd_list(_session: ReplSession, console: Console, args: list[str]) -> bool:
     sub = (args[0].lower() if args else "").strip()
 
     if sub in ("integrations", "integration", "int"):
-        render_integrations_table(console, repl_data.load_verified_integrations())
+        render_integrations_table(console, repl_data.load_list_integrations())
         return True
 
     if sub in ("mcp", "mcps"):
-        render_mcp_table(console, repl_data.load_verified_integrations())
+        render_mcp_table(console, repl_data.load_list_integrations())
         return True
 
     if sub in ("models", "model", "llm", "llms"):
@@ -116,7 +116,7 @@ def _cmd_list(_session: ReplSession, console: Console, args: list[str]) -> bool:
         )
         return True
 
-    results = repl_data.load_verified_integrations()
+    results = repl_data.load_list_integrations()
     render_integrations_table(console, results)
     render_mcp_table(console, results)
     render_models_table(console, repl_data.load_llm_settings())

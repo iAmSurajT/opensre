@@ -21,6 +21,7 @@ from app.cli.interactive_shell.command_registry.model import (
     switch_toolcall_model,
 )
 from app.cli.interactive_shell.command_registry.repl_data import (
+    load_list_integrations,
     load_llm_settings,
     load_verified_integrations,
 )
@@ -128,6 +129,7 @@ __all__ = [
     "SLASH_COMMANDS",
     "SlashCommand",
     "dispatch_slash",
+    "load_list_integrations",
     "load_llm_settings",
     "load_verified_integrations",
     "switch_llm_provider",

@@ -237,27 +237,23 @@ _WHATS_NEW: tuple[str, ...] = (
 _LEFT_COL_WIDTH = 46
 _RIGHT_COL_WIDTH = 40
 
-# OpenSRE brand mark — the figlet "big" O glyph used by the splash wordmark,
-# rendered standalone with a thin curved echo tracing its right edge. Each row
-# is (body, echo): body renders in the bright brand colour to match the splash,
-# echo renders dim so it reads as a shadow/outline rather than a second glyph.
-_LOGO_MARK_ROWS: tuple[tuple[str, str], ...] = (
-    ("  ___  ", " "),
-    (" / _ \\", " \\"),
-    ("| |   |", " |"),
-    ("| |_  |", " |"),
-    (" \\___/", " /"),
+# OpenSRE brand mark — the clean figlet "big" O glyph from the splash wordmark.
+_LOGO_MARK_ROWS: tuple[str, ...] = (
+    "  ___  ",
+    " / _ \\ ",
+    "| | | |",
+    "| |_| |",
+    " \\___/ ",
 )
 
 
 def _build_logo_mark() -> Text:
-    """Return the brand mark as a styled, two-tone Text block."""
+    """Return the brand mark as a styled Text block."""
     logo = Text(no_wrap=True)
-    for index, (body, echo) in enumerate(_LOGO_MARK_ROWS):
+    for index, row in enumerate(_LOGO_MARK_ROWS):
         if index:
             logo.append("\n")
-        logo.append(body, style=f"bold {PRIMARY_ALT}")
-        logo.append(echo, style=TEXT_DIM)
+        logo.append(row, style=f"bold {PRIMARY_ALT}")
     return logo
 
 

@@ -37,7 +37,6 @@ from app.cli.interactive_shell.theme import (
     ANSI_RESET,
     DIM_COUNTER_ANSI,
     OPENCLAW_AMBER,
-    OPENCLAW_CORAL,
     OPENCLAW_ORANGE,
     PROMPT_ACCENT_ANSI,
     SEPARATOR_COLOR,
@@ -313,15 +312,15 @@ def _build_prompt_key_bindings() -> KeyBindings:
 def _build_prompt_style() -> Style:
     return Style.from_dict(
         {
-            "repl-slash-command": f"bold {OPENCLAW_AMBER} bg:#2c1e14",
-            "completion-menu": "bg:#1c1917",
-            "completion-menu.completion": "#d6d0ca bg:#1c1917",
-            "completion-menu.completion.current": f"bold {OPENCLAW_ORANGE} bg:#2c1e14",
-            "completion-menu.meta.completion": "#6b6561 bg:#1c1917",
-            "completion-menu.meta.completion.current": f"{OPENCLAW_AMBER} bg:#2c1e14",
-            "completion-menu.border": OPENCLAW_CORAL,
-            "scrollbar.background": "bg:#1c1917",
-            "scrollbar.button": "bg:#4a3020",
+            "repl-slash-command": f"bold {OPENCLAW_AMBER} bg:default noreverse",
+            "completion-menu": "bg:default noreverse",
+            "completion-menu.completion": "#d6d0ca bg:default noreverse",
+            "completion-menu.completion.current": f"bold {OPENCLAW_ORANGE} bg:default noreverse",
+            "completion-menu.meta.completion": "#6b6561 bg:default noreverse",
+            "completion-menu.meta.completion.current": f"{OPENCLAW_AMBER} bg:default noreverse",
+            "completion-menu.border": "bg:default noreverse",
+            "scrollbar.background": "bg:default noreverse",
+            "scrollbar.button": "bg:default noreverse",
         }
     )
 
