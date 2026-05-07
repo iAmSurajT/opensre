@@ -214,6 +214,7 @@ def _status_style(status: str) -> str:
         "ok": "green",
         "configured": "green",
         "passed": "green",
+        "healthy": "green",
         "missing": "yellow",
         "failed": "red",
     }.get(status, "dim")
