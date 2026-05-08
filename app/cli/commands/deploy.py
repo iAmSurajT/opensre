@@ -365,7 +365,17 @@ def deploy_ec2(down: bool, branch: str) -> None:
             raise
         raise _ec2_deploy_not_bundled_error() from exc
 
-    outputs = run_deploy(branch=branch)
+    try:
+        outputs = run_deploy(branch=branch)
+    except Exception as exc:
+        if type(exc).__name__ == "NoCredentialsError" and (
+            type(exc).__module__ or ""
+        ).startswith("botocore"):
+            raise click.ClickException(
+                "AWS credentials not found. Run 'aws configure' or set the "
+                "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
+            ) from exc
+        raise
     _persist_remote_url(outputs)
 
     remote_url = _build_remote_url(outputs)
