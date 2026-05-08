@@ -153,6 +153,7 @@ def print_planned_actions(console: Console, actions: list[PlannedAction]) -> Non
             "shell": "shell",
             "slash": "command",
             "synthetic_test": "synthetic test",
+            "cli_command": "opensre",
         }[action.kind]
         console.print(
             f"[{TEXT_DIM}]{index}.[/] [{TERMINAL_ACCENT_BOLD}]{label}[/] {escape(action.content)}"
