@@ -19,7 +19,14 @@ if TYPE_CHECKING:
     from app.integrations.llm_cli.registry import CLIProviderRegistration
 
 import boto3
-from anthropic import Anthropic, AnthropicBedrock, AuthenticationError, NotFoundError
+from anthropic import (
+    Anthropic,
+    AnthropicBedrock,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    PermissionDeniedError,
+)
 from openai import AuthenticationError as OpenAIAuthError
 from openai import NotFoundError as OpenAINotFoundError
 from openai import OpenAI
@@ -325,6 +332,27 @@ class BedrockLLMClient:
                 break
             except GuardrailBlockedError:
                 raise
+            except AuthenticationError as err:
+                raise RuntimeError(
+                    f"Bedrock authentication failed for model '{self._model}'. "
+                    "Check your AWS credentials and region configuration."
+                ) from err
+            except PermissionDeniedError as err:
+                raise RuntimeError(
+                    f"Bedrock access denied for model '{self._model}'. "
+                    "Verify the model is enabled for your AWS account and region."
+                ) from err
+            except NotFoundError as err:
+                raise RuntimeError(
+                    f"Bedrock model '{self._model}' was not found or has reached end of life. "
+                    "Update BEDROCK_REASONING_MODEL / BEDROCK_TOOLCALL_MODEL to a supported model ID."
+                ) from err
+            except BadRequestError as err:
+                raise RuntimeError(
+                    f"Bedrock rejected the request for model '{self._model}': {err}. "
+                    "For newer Claude models, use a cross-region inference profile ID "
+                    "(e.g. 'us.anthropic.claude-opus-4-7-20251101-v1:0') instead of the bare model ID."
+                ) from err
             except Exception as err:
                 last_err = err
                 if attempt == max_attempts - 1:
