@@ -19,7 +19,14 @@ if TYPE_CHECKING:
     from app.integrations.llm_cli.registry import CLIProviderRegistration
 
 import boto3
-from anthropic import Anthropic, AnthropicBedrock, AuthenticationError, NotFoundError
+from anthropic import (
+    Anthropic,
+    AnthropicBedrock,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    PermissionDeniedError,
+)
 from openai import AuthenticationError as OpenAIAuthError
 from openai import NotFoundError as OpenAINotFoundError
 from openai import OpenAI
@@ -325,6 +332,27 @@ class BedrockLLMClient:
                 break
             except GuardrailBlockedError:
                 raise
+            except PermissionDeniedError as err:
+                raise RuntimeError(
+                    f"Bedrock model '{self._model}' access denied (HTTP 403). "
+                    "Verify the model is enabled for your AWS account in the Bedrock console."
+                ) from err
+            except BadRequestError as err:
+                err_msg = str(err)
+                if "on-demand throughput" in err_msg or "inference profile" in err_msg.lower():
+                    raise RuntimeError(
+                        f"Bedrock model '{self._model}' requires an inference profile. "
+                        "Use a cross-region profile ID (e.g. 'us.anthropic.claude-…') "
+                        "or set BEDROCK_REASONING_MODEL to a valid inference profile ID."
+                    ) from err
+                raise RuntimeError(
+                    f"Bedrock bad request for model '{self._model}': {err}"
+                ) from err
+            except NotFoundError as err:
+                raise RuntimeError(
+                    f"Bedrock model '{self._model}' not found or has reached end of life. "
+                    "Update BEDROCK_REASONING_MODEL or BEDROCK_TOOLCALL_MODEL to a supported model."
+                ) from err
             except Exception as err:
                 last_err = err
                 if attempt == max_attempts - 1:
@@ -378,6 +406,19 @@ class BedrockLLMClient:
             except GuardrailBlockedError:
                 raise
             except Exception as err:
+                # boto3 ClientError: don't retry hard failures (invalid model, no access, etc.)
+                boto_response = getattr(err, "response", None)
+                if isinstance(boto_response, dict):
+                    code = boto_response.get("Error", {}).get("Code", "")
+                    if code in (
+                        "ValidationException",
+                        "ResourceNotFoundException",
+                        "AccessDeniedException",
+                        "UnauthorizedException",
+                    ):
+                        raise RuntimeError(
+                            f"Bedrock converse failed ({code}): {err}"
+                        ) from err
                 last_err = err
                 if attempt == max_attempts - 1:
                     raise RuntimeError(

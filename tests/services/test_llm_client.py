@@ -227,6 +227,151 @@ def test_invoke_converse_includes_optional_system_temperature(monkeypatch) -> No
     assert kwargs["inferenceConfig"]["temperature"] == 0.4
 
 
+# ── BedrockLLMClient non-retryable error handling ────────────────────────────
+
+
+class _ClientErrorRuntime:
+    """boto3 runtime stub that raises a ClientError-like exception and counts calls."""
+
+    def __init__(self, code: str) -> None:
+        self._code = code
+        self.call_count = 0
+
+    def converse(self, **_kwargs) -> dict:
+        self.call_count += 1
+        err = Exception(f"An error occurred ({self._code}) ...")
+        err.response = {"Error": {"Code": self._code, "Message": "..."}}  # type: ignore[attr-defined]
+        raise err
+
+
+class _CountingAnthropicBedrockMessages:
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+        self.call_count = 0
+
+    def create(self, **_kwargs) -> None:
+        self.call_count += 1
+        raise self._exc
+
+
+class _CountingAnthropicBedrock:
+    def __init__(self, exc: Exception) -> None:
+        self.messages = _CountingAnthropicBedrockMessages(exc)
+
+
+# Fake anthropic SDK exception subclasses that bypass the httpx-dependent
+# parent constructors while remaining valid isinstance targets.
+
+class _FakePermissionDeniedError(llm_client.PermissionDeniedError):
+    def __init__(self, message: str = "") -> None:
+        Exception.__init__(self, message)
+        self.status_code = 403
+
+    def __str__(self) -> str:
+        return self.args[0]
+
+
+class _FakeBadRequestError(llm_client.BadRequestError):
+    def __init__(self, message: str = "") -> None:
+        Exception.__init__(self, message)
+        self.status_code = 400
+
+    def __str__(self) -> str:
+        return self.args[0]
+
+
+class _FakeNotFoundError(llm_client.NotFoundError):
+    def __init__(self, message: str = "") -> None:
+        Exception.__init__(self, message)
+        self.status_code = 404
+
+    def __str__(self) -> str:
+        return self.args[0]
+
+
+def test_invoke_converse_validation_exception_not_retried(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.guardrails.engine.get_guardrail_engine",
+        _InactiveGuardrailEngine,
+    )
+    runtime = _ClientErrorRuntime("ValidationException")
+    monkeypatch.setattr(llm_client.boto3, "client", lambda *_a, **_k: runtime)
+
+    client = llm_client.BedrockLLMClient(
+        model="arn:aws:bedrock:us-east-2:123:application-inference-profile/bad"
+    )
+    with pytest.raises(RuntimeError, match="ValidationException"):
+        client.invoke("hello")
+
+    assert runtime.call_count == 1, "should not retry ValidationException"
+
+
+def test_invoke_converse_access_denied_not_retried(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.guardrails.engine.get_guardrail_engine",
+        _InactiveGuardrailEngine,
+    )
+    runtime = _ClientErrorRuntime("AccessDeniedException")
+    monkeypatch.setattr(llm_client.boto3, "client", lambda *_a, **_k: runtime)
+
+    client = llm_client.BedrockLLMClient(model="mistral.some-model")
+    with pytest.raises(RuntimeError, match="AccessDeniedException"):
+        client.invoke("hello")
+
+    assert runtime.call_count == 1, "should not retry AccessDeniedException"
+
+
+def test_invoke_anthropic_bedrock_permission_denied_not_retried(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.guardrails.engine.get_guardrail_engine",
+        _InactiveGuardrailEngine,
+    )
+    exc = _FakePermissionDeniedError("anthropic.claude-opus-4-7 is not available for this account")
+    fake = _CountingAnthropicBedrock(exc)
+    monkeypatch.setattr(llm_client, "AnthropicBedrock", lambda **_k: fake)
+
+    client = llm_client.BedrockLLMClient(model="anthropic.claude-opus-4-7")
+    with pytest.raises(RuntimeError, match="access denied"):
+        client.invoke("hello")
+
+    assert fake.messages.call_count == 1, "should not retry PermissionDeniedError"
+
+
+def test_invoke_anthropic_bedrock_inference_profile_error_not_retried(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.guardrails.engine.get_guardrail_engine",
+        _InactiveGuardrailEngine,
+    )
+    exc = _FakeBadRequestError(
+        "Invocation of model ID anthropic.claude-opus-4-1-20250805-v1:0 with on-demand throughput "
+        "isn't supported. Retry your request with the ID or ARN of an inference profile."
+    )
+    fake = _CountingAnthropicBedrock(exc)
+    monkeypatch.setattr(llm_client, "AnthropicBedrock", lambda **_k: fake)
+
+    client = llm_client.BedrockLLMClient(model="anthropic.claude-opus-4-1-20250805-v1:0")
+    with pytest.raises(RuntimeError, match="inference profile"):
+        client.invoke("hello")
+
+    assert fake.messages.call_count == 1, "should not retry BadRequestError for inference profile"
+
+
+def test_invoke_anthropic_bedrock_model_eol_not_retried(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.guardrails.engine.get_guardrail_engine",
+        _InactiveGuardrailEngine,
+    )
+    exc = _FakeNotFoundError("This model version has reached the end of its life.")
+    fake = _CountingAnthropicBedrock(exc)
+    monkeypatch.setattr(llm_client, "AnthropicBedrock", lambda **_k: fake)
+
+    client = llm_client.BedrockLLMClient(model="anthropic.claude-old-model-v1:0")
+    with pytest.raises(RuntimeError, match="end of life|not found"):
+        client.invoke("hello")
+
+    assert fake.messages.call_count == 1, "should not retry NotFoundError"
+
+
 def test_invoke_converse_raises_when_no_text_blocks(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.guardrails.engine.get_guardrail_engine",
