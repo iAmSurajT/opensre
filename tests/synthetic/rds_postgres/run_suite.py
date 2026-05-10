@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
+import textwrap
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
@@ -195,6 +197,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=str(SUITE_DIR / "_observations"),
         help="Directory where per-run observation JSON files are written.",
     )
+    parser.add_argument(
+        "--baseline-out",
+        default="",
+        dest="baseline_out",
+        help="Write per-scenario canonical_report_payload JSON snapshots into this directory.",
+    )
+    parser.add_argument(
+        "--baseline-check",
+        default="",
+        dest="baseline_check",
+        help=(
+            "Compare each scenario's canonical_report_payload against snapshots in this "
+            "directory. Exits non-zero on any mismatch."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -209,16 +226,15 @@ def _build_resolved_integrations(
     so callers can instrument the backend before injection.  Falls back to a fresh
     FixtureGrafanaBackend when use_mock_grafana=True and no backend is provided.
 
-    When the scenario declares EC2/ELB evidence, also injects a FixtureAWSBackend
-    under ``aws.ec2_backend`` so the EC2/RDS topology tools can serve fixture
-    data without colliding with the EKS ``_backend`` slot.
+    Always injects a FixtureAWSBackend under ``aws.ec2_backend``. The
+    rds_postgres suite is RDS-shaped end to end — every scenario carries a
+    DB identifier, the planner can pick the RDS describe tools at any time,
+    and we MUST keep boto3 calls from leaking to real AWS during scenario
+    runs (which would silently hit whatever account the developer happened
+    to be authenticated against). The backend gracefully serves EC2/ELB and
+    RDS describe data and raises only when the scenario calls a feed it
+    didn't declare.
     """
-    has_aws_topology = bool(
-        fixture.evidence.ec2_instances_by_tag is not None
-        or fixture.evidence.elb_target_health is not None
-    )
-    if not use_mock_grafana and grafana_backend is None and not has_aws_topology:
-        return None
     integrations: dict[str, Any] = {}
     if use_mock_grafana or grafana_backend is not None:
         integrations["grafana"] = {
@@ -226,12 +242,11 @@ def _build_resolved_integrations(
             "api_key": "",
             "_backend": grafana_backend or FixtureGrafanaBackend(fixture),
         }
-    if has_aws_topology:
-        integrations["aws"] = {
-            "region": fixture.metadata.region,
-            "ec2_backend": FixtureAWSBackend(fixture),
-        }
-    return integrations or None
+    integrations["aws"] = {
+        "region": fixture.metadata.region,
+        "ec2_backend": FixtureAWSBackend(fixture),
+    }
+    return integrations
 
 
 def _normalize_text(value: str) -> str:
@@ -879,6 +894,54 @@ def _print_gap_report(
         )
 
 
+def _write_baseline(canonical_payloads: dict[str, Any], baseline_out_dir: Path) -> None:
+    """Write per-scenario canonical_report_payload snapshots to *baseline_out_dir*."""
+    baseline_out_dir.mkdir(parents=True, exist_ok=True)
+    for scenario_id, payload in canonical_payloads.items():
+        target = baseline_out_dir / f"{scenario_id}.json"
+        target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _check_baseline(
+    canonical_payloads: dict[str, Any],
+    baseline_check_dir: Path,
+) -> list[str]:
+    """Compare canonical payloads against committed baseline snapshots.
+
+    Returns a list of human-readable mismatch descriptions (empty if all match).
+    """
+    mismatches: list[str] = []
+    for scenario_id, actual_payload in canonical_payloads.items():
+        baseline_file = baseline_check_dir / f"{scenario_id}.json"
+        if not baseline_file.exists():
+            mismatches.append(f"{scenario_id}: baseline file missing at {baseline_file}")
+            continue
+        expected = json.loads(baseline_file.read_text(encoding="utf-8"))
+        actual_canonical = json.loads(
+            json.dumps(actual_payload, sort_keys=True, separators=(",", ":"))
+        )
+        expected_canonical = json.loads(
+            json.dumps(expected, sort_keys=True, separators=(",", ":"))
+        )
+        if actual_canonical != expected_canonical:
+            actual_str = json.dumps(actual_payload, indent=2, sort_keys=True)
+            expected_str = json.dumps(expected, indent=2, sort_keys=True)
+            diff_lines: list[str] = []
+            for line in difflib.unified_diff(
+                expected_str.splitlines(),
+                actual_str.splitlines(),
+                fromfile=f"{scenario_id} (baseline)",
+                tofile=f"{scenario_id} (actual)",
+                lineterm="",
+            ):
+                diff_lines.append(line)
+            mismatches.append(
+                f"{scenario_id}: canonical payload differs from baseline\n"
+                + "\n".join(diff_lines[:60])
+            )
+    return mismatches
+
+
 def run_suite(argv: list[str] | None = None) -> list[ScenarioScore]:
     args = parse_args(argv)
     fixtures = load_all_scenarios(SUITE_DIR)
@@ -894,6 +957,7 @@ def run_suite(argv: list[str] | None = None) -> list[ScenarioScore]:
     report_console = Console(highlight=False, soft_wrap=True)
 
     results: list[ScenarioScore] = []
+    canonical_payloads: dict[str, Any] = {}
     for fixture in fixtures:
         started_at = datetime.now(UTC)
         started_monotonic = time.monotonic()
@@ -941,6 +1005,8 @@ def run_suite(argv: list[str] | None = None) -> list[ScenarioScore]:
             started_at=started_at,
             wall_time_s=wall_time_s,
         )
+        canonical_payloads[fixture.scenario_id] = observation.canonical_report_payload
+
         observation_path = write_observation(observation, observations_dir)
         relative_observation_path = str(observation_path.relative_to(observations_dir))
         display_observation_path = str(observation_path.resolve())
@@ -966,6 +1032,17 @@ def run_suite(argv: list[str] | None = None) -> list[ScenarioScore]:
 
         passed_count = sum(1 for result in results if result.passed)
         print(f"\nResults: {passed_count}/{len(results)} passed")
+
+    if args.baseline_out:
+        _write_baseline(canonical_payloads, Path(args.baseline_out))
+
+    if args.baseline_check:
+        mismatches = _check_baseline(canonical_payloads, Path(args.baseline_check))
+        if mismatches:
+            print("\n=== Baseline Check FAILED ===")
+            for msg in mismatches:
+                print(textwrap.indent(msg, "  "))
+            raise SystemExit(1)
 
     return results
 

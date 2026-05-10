@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 import tests.synthetic.rds_postgres.run_suite as run_suite_module
 from tests.synthetic.rds_postgres.scenario_loader import (
@@ -233,3 +236,128 @@ def test_run_suite_json_mode_suppresses_report_render(
     )
 
     assert render_calls == []
+
+
+# ---------------------------------------------------------------------------
+# Baseline guardrail tests (Phase 0)
+# ---------------------------------------------------------------------------
+
+_BASELINE_DIR = Path(__file__).parent / "_baseline"
+
+
+def _make_deterministic_final_state() -> dict[str, Any]:
+    """Empty final state that produces stable canonical payloads without LLM calls."""
+    return {
+        "root_cause": "",
+        "root_cause_category": "unknown",
+        "validated_claims": [],
+        "non_validated_claims": [],
+        "causal_chain": [],
+        "evidence": {},
+        "executed_hypotheses": [],
+        "investigation_loop_count": 0,
+        "report": "",
+    }
+
+
+def _make_base_score(fixture: Any) -> Any:
+    """Return a ScenarioScore identical to what score_result produces for an empty final state.
+
+    The baseline was generated using score_result with an empty final state, so this
+    must match exactly — bare ScenarioScore construction omits gates and is not equivalent.
+    """
+    return run_suite_module.score_result(fixture, _make_deterministic_final_state())
+
+
+def _fake_write_observation_baseline(
+    _observation: Any,
+    observations_dir: Path,
+) -> Path:
+    target = observations_dir / "001-replication-lag" / "latest.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{}", encoding="utf-8")
+    return target
+
+
+def test_baseline_check_passes_against_committed_baseline(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    """run_suite --baseline-check exits cleanly when payloads match the committed baseline."""
+    fixture = load_scenario(SUITE_DIR / "001-replication-lag")
+
+    monkeypatch.setattr(
+        run_suite_module,
+        "load_all_scenarios",
+        lambda _suite_dir: [fixture],
+    )
+    monkeypatch.setattr(
+        run_suite_module,
+        "run_scenario",
+        lambda *_args, **_kwargs: (
+            _make_deterministic_final_state(),
+            _make_base_score(fixture),
+        ),
+    )
+    monkeypatch.setattr(
+        run_suite_module, "write_observation", _fake_write_observation_baseline
+    )
+
+    # Should not raise SystemExit
+    run_suite_module.run_suite(
+        [
+            "--scenario",
+            fixture.scenario_id,
+            "--observations-dir",
+            str(tmp_path),
+            "--baseline-check",
+            str(_BASELINE_DIR),
+        ]
+    )
+
+
+def test_baseline_check_detects_drift(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    """run_suite --baseline-check exits non-zero when a canonical field differs from baseline."""
+    fixture = load_scenario(SUITE_DIR / "001-replication-lag")
+
+    # Tamper with the baseline to simulate drift
+    tampered_dir = tmp_path / "tampered_baseline"
+    tampered_dir.mkdir()
+    original = json.loads((_BASELINE_DIR / "001-replication-lag.json").read_text())
+    original["status"] = "pass"  # invert status to force mismatch
+    (tampered_dir / "001-replication-lag.json").write_text(
+        json.dumps(original, indent=2, sort_keys=True)
+    )
+
+    monkeypatch.setattr(
+        run_suite_module,
+        "load_all_scenarios",
+        lambda _suite_dir: [fixture],
+    )
+    monkeypatch.setattr(
+        run_suite_module,
+        "run_scenario",
+        lambda *_args, **_kwargs: (
+            _make_deterministic_final_state(),
+            _make_base_score(fixture),
+        ),
+    )
+    monkeypatch.setattr(
+        run_suite_module, "write_observation", _fake_write_observation_baseline
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_suite_module.run_suite(
+            [
+                "--scenario",
+                fixture.scenario_id,
+                "--observations-dir",
+                str(tmp_path),
+                "--baseline-check",
+                str(tampered_dir),
+            ]
+        )
+    assert exc_info.value.code == 1
