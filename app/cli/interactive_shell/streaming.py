@@ -55,32 +55,35 @@ def _console_file_is_a_tty(console: Console) -> bool:
 
 def _run_throttled_markdown_loop(
     *,
-    set_view: Callable[[Any], None],
+    preview: Callable[[Any], None],
     chunks_iter: Iterator[str],
     buffer: list[str],
     next_chunk: Callable[[Iterator[str]], str | None],
 ) -> None:
+    """Drain chunks into ``buffer`` and emit preview frames at most every
+    ``_LIVE_RENDER_INTERVAL_S`` seconds.
+
+    ``preview`` is called only with intermediate, possibly-cropped frames. It
+    must NOT be relied on to render the final full response — callers are
+    responsible for printing the final Markdown once after this loop returns,
+    so that the visible result is one static block rather than a stack of
+    re-renders that accumulate in terminal scrollback.
+    """
     last_render = 0.0
-    try:
-        if buffer:
-            set_view(Markdown("".join(buffer), code_theme="ansi_dark"))
-            last_render = time.monotonic()
-        while True:
-            chunk = next_chunk(chunks_iter)
-            if chunk is None:
-                break
-            if not chunk:
-                continue
-            buffer.append(chunk)
-            now = time.monotonic()
-            if now - last_render >= _LIVE_RENDER_INTERVAL_S:
-                set_view(Markdown("".join(buffer), code_theme="ansi_dark"))
-                last_render = now
-    finally:
-        if buffer:
-            set_view(Markdown("".join(buffer), code_theme="ansi_dark"))
-        else:
-            set_view(Text(""))
+    if buffer:
+        preview(Markdown("".join(buffer), code_theme="ansi_dark"))
+        last_render = time.monotonic()
+    while True:
+        chunk = next_chunk(chunks_iter)
+        if chunk is None:
+            break
+        if not chunk:
+            continue
+        buffer.append(chunk)
+        now = time.monotonic()
+        if now - last_render >= _LIVE_RENDER_INTERVAL_S:
+            preview(Markdown("".join(buffer), code_theme="ansi_dark"))
+            last_render = now
 
 
 def stream_to_console(
@@ -175,16 +178,26 @@ def stream_to_console(
     try:
         with console.use_theme(MARKDOWN_THEME):
 
-            def _print_markdown_view(renderable: Any) -> None:
-                if isinstance(renderable, Markdown):
-                    console.print(renderable)
+            def _noop_preview(_renderable: Any) -> None:
+                """Used when Live is unavailable.
+
+                Per-tick rendering would print the entire cumulative buffer to
+                stdout on each refresh, producing a staircase of duplicated
+                content in scrollback. We skip in-flight previews and rely on
+                the post-loop final print below to render the response once.
+                """
 
             def _live_kwargs() -> dict[str, Any]:
                 return {
                     "console": console,
                     "refresh_per_second": _LIVE_REFRESH_PER_SECOND,
-                    "transient": False,
-                    "vertical_overflow": "visible",
+                    # Clear the live frame on exit so the final static print
+                    # below is the single canonical rendering of the response.
+                    "transient": True,
+                    # Crop the in-flight preview to the visible region. Without
+                    # this, content taller than the terminal pushes each
+                    # refresh frame into scrollback as a permanent artifact.
+                    "vertical_overflow": "ellipsis",
                 }
 
             def _run_throttled_with_live(*, wrap_patch_stdout: bool) -> None:
@@ -194,7 +207,7 @@ def stream_to_console(
                         Live(spinner, **_live_kwargs()) as live_ref,
                     ):
                         _run_throttled_markdown_loop(
-                            set_view=live_ref.update,
+                            preview=live_ref.update,
                             chunks_iter=chunks_iter,
                             buffer=buffer,
                             next_chunk=_next_chunk,
@@ -202,33 +215,47 @@ def stream_to_console(
                 else:
                     with Live(spinner, **_live_kwargs()) as live_ref:
                         _run_throttled_markdown_loop(
-                            set_view=live_ref.update,
+                            preview=live_ref.update,
                             chunks_iter=chunks_iter,
                             buffer=buffer,
                             next_chunk=_next_chunk,
                         )
 
-            wrap_patch_stdout = _console_file_is_a_tty(console)
+            # Streaming may raise (upstream HTTP error, double Ctrl+C, etc.).
+            # In every case we want the partial buffer rendered exactly once
+            # as a static block so the user — and any error label printed by
+            # the caller — sees what was produced before the failure.
             try:
-                _run_throttled_with_live(wrap_patch_stdout=wrap_patch_stdout)
-            except NoConsoleScreenBufferError:
-                if wrap_patch_stdout:
-                    try:
-                        _run_throttled_with_live(wrap_patch_stdout=False)
-                    except NoConsoleScreenBufferError:
+                wrap_patch_stdout = _console_file_is_a_tty(console)
+                try:
+                    _run_throttled_with_live(wrap_patch_stdout=wrap_patch_stdout)
+                except NoConsoleScreenBufferError:
+                    if wrap_patch_stdout:
+                        try:
+                            _run_throttled_with_live(wrap_patch_stdout=False)
+                        except NoConsoleScreenBufferError:
+                            _run_throttled_markdown_loop(
+                                preview=_noop_preview,
+                                chunks_iter=chunks_iter,
+                                buffer=buffer,
+                                next_chunk=_next_chunk,
+                            )
+                    else:
                         _run_throttled_markdown_loop(
-                            set_view=_print_markdown_view,
+                            preview=_noop_preview,
                             chunks_iter=chunks_iter,
                             buffer=buffer,
                             next_chunk=_next_chunk,
                         )
+            finally:
+                # Single authoritative render. The live preview was transient
+                # + cropped while streaming; this is what ends up in
+                # scrollback. Runs on both success and exception so callers
+                # can surface error context below the partial response.
+                if buffer:
+                    console.print(Markdown("".join(buffer), code_theme="ansi_dark"))
                 else:
-                    _run_throttled_markdown_loop(
-                        set_view=_print_markdown_view,
-                        chunks_iter=chunks_iter,
-                        buffer=buffer,
-                        next_chunk=_next_chunk,
-                    )
+                    console.print(Text(""))
         if buffer:
             console.print(f"[{DIM}]· {time.monotonic() - started:.1f}s[/]")
     finally:
