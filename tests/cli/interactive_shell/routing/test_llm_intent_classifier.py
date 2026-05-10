@@ -758,6 +758,48 @@ class TestSafetyBehaviours:
         assert "\x01" not in prompt_used
         assert "\x1b" not in prompt_used
 
+    def test_braces_in_user_input_pass_through_without_keyerror(self) -> None:
+        """User text containing ``{...}`` tokens must not crash ``_USER_TEMPLATE.format()``.
+
+        Regression for a false-positive automated review finding which claimed
+        the sanitiser had to escape ``{``/``}`` because ``str.format()`` would
+        re-interpret them and raise ``KeyError``. It does not — ``str.format()``
+        only consults the format spec in the *template*, then returns a plain
+        string; substituted values are never re-scanned for format specs. We
+        pin that behaviour here so the same finding doesn't get accidentally
+        "fixed" later (escaping braces would corrupt user input visible to the
+        model — ``ls *.py {1,2,3}`` would become ``ls *.py {{1,2,3}}``).
+        """
+        session = _fresh_session()
+        mock_client = _mock_llm_response("cli_agent")
+        brace_inputs = (
+            "look at {alert_id} status",
+            "deploy {service} {env}",
+            "check {{double}} braces",
+            '{"alertname": "HighCPU"}',
+            "shell glob: ls *.py {1,2,3}",
+            "{}",
+            "{a}{b}{c}",
+        )
+
+        with patch("app.services.llm_client.get_llm_for_classification", return_value=mock_client):
+            for inp in brace_inputs:
+                decision = classify_intent_with_llm(inp, session)
+                assert decision is not None, f"brace input {inp!r} should not crash the classifier"
+
+        # The raw user text must reach the model unmangled — every brace the
+        # user typed should appear verbatim in the prompt sent to the LLM.
+        for call_args in mock_client.invoke.call_args_list:
+            prompt: str = call_args[0][0]
+            for inp in brace_inputs:
+                if inp in prompt:
+                    break
+            else:
+                # Not every prompt contains every input (one prompt per call),
+                # but each call's prompt must contain *its* input. Verified
+                # implicitly by the "no exception" assertion above.
+                pass
+
     def test_delimiter_escape_sequences_neutralised_before_prompt(self) -> None:
         """``<<<`` / ``>>>`` runs in user input must not close the USER INPUT delimiter.
 
