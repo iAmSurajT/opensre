@@ -854,12 +854,16 @@ def _is_interactive_wizard(tokens: list[str]) -> bool:
     return two in _INTERACTIVE_OPENSRE_COMMAND_PATHS
 
 
-def _print_interactive_wizard_handoff(console: Console, command_str: str) -> None:
+def print_interactive_wizard_handoff(console: Console, command_str: str) -> None:
     """Print the standardized 'wizard needs a full terminal' handoff
     message. Used by both :func:`run_opensre_cli_command` (LLM-classified
     intent path) and ``cli_parity._cmd_onboard`` (slash-command path) so
     the user sees the same message regardless of how the wizard was
     triggered.
+
+    Exported (no leading underscore) because it crosses module
+    boundaries — Greptile flagged that a private name imported across
+    modules creates a hidden public contract.
     """
     console.print(
         f"[{WARNING}]`opensre {command_str}` is an interactive wizard "
@@ -1016,7 +1020,7 @@ def run_opensre_cli_command(
 
     if _is_interactive_wizard(tokens):
         command_str = " ".join(tokens)
-        _print_interactive_wizard_handoff(console, command_str)
+        print_interactive_wizard_handoff(console, command_str)
         session.record("cli_command", f"opensre {command_str}", ok=False)
         return True
 

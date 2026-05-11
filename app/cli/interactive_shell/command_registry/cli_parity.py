@@ -18,7 +18,7 @@ from app.cli.interactive_shell.command_registry.suggestions import closest_choic
 from app.cli.interactive_shell.command_registry.types import ExecutionTier, SlashCommand
 from app.cli.interactive_shell.orchestration.action_executor import (
     SYNTHETIC_TEST_TIMEOUT_SECONDS,
-    _print_interactive_wizard_handoff,
+    print_interactive_wizard_handoff,
     start_background_cli_task,
 )
 from app.cli.interactive_shell.runtime import ReplSession, TaskKind
@@ -63,17 +63,21 @@ def run_cli_command(
     return True
 
 
-def _cmd_onboard(session: ReplSession, console: Console, args: list[str]) -> bool:  # noqa: ARG001
+def _cmd_onboard(session: ReplSession, console: Console, args: list[str]) -> bool:
     # Onboard is a full-TTY interactive wizard. It cannot run inside
     # the persistent REPL — the wizard's prompt_toolkit Application
     # fights the shell's active one over the same terminal, producing
     # the stacked-widget rendering bug. Refuse with a clear handoff to
     # the right invocation instead of spawning a subprocess that will
     # fail visually. Message body lives in
-    # ``action_executor._print_interactive_wizard_handoff`` so the
+    # ``action_executor.print_interactive_wizard_handoff`` so the
     # LLM-classified path and this slash path stay in lock-step.
     command_str = "onboard" + ((" " + " ".join(args)) if args else "")
-    _print_interactive_wizard_handoff(console, command_str)
+    print_interactive_wizard_handoff(console, command_str)
+    # Mirror :func:`run_opensre_cli_command`: record the attempted-but-
+    # refused invocation so the AI assistant's session history captures
+    # user intent regardless of which entry point they used.
+    session.record("cli_command", f"opensre {command_str}", ok=False)
     return True
 
 
