@@ -18,10 +18,11 @@ from app.cli.interactive_shell.command_registry.suggestions import closest_choic
 from app.cli.interactive_shell.command_registry.types import ExecutionTier, SlashCommand
 from app.cli.interactive_shell.orchestration.action_executor import (
     SYNTHETIC_TEST_TIMEOUT_SECONDS,
+    _print_interactive_wizard_handoff,
     start_background_cli_task,
 )
 from app.cli.interactive_shell.runtime import ReplSession, TaskKind
-from app.cli.interactive_shell.ui import DIM, ERROR, WARNING
+from app.cli.interactive_shell.ui import DIM, ERROR
 
 _UPDATE_SUBPROCESS_TIMEOUT_SECONDS = 300
 _BACKGROUND_TEST_SUBCOMMANDS = frozenset({"run", "synthetic", "cloudopsbench"})
@@ -63,20 +64,16 @@ def run_cli_command(
 
 
 def _cmd_onboard(session: ReplSession, console: Console, args: list[str]) -> bool:  # noqa: ARG001
-    # Onboard is a full-TTY interactive wizard (``questionary`` radio
-    # widgets, multi-step prompts). It cannot run inside the persistent
-    # REPL — the wizard's prompt_toolkit Application fights the shell's
-    # active one over the same terminal, producing the stacked-widget
-    # rendering bug. Refuse with a clear pointer to the right invocation
-    # instead of spawning a subprocess that will fail visually.
+    # Onboard is a full-TTY interactive wizard. It cannot run inside
+    # the persistent REPL — the wizard's prompt_toolkit Application
+    # fights the shell's active one over the same terminal, producing
+    # the stacked-widget rendering bug. Refuse with a clear handoff to
+    # the right invocation instead of spawning a subprocess that will
+    # fail visually. Message body lives in
+    # ``action_executor._print_interactive_wizard_handoff`` so the
+    # LLM-classified path and this slash path stay in lock-step.
     command_str = "onboard" + ((" " + " ".join(args)) if args else "")
-    console.print(
-        f"[{WARNING}]`/onboard` runs an interactive wizard that needs a full terminal.[/]"
-    )
-    console.print(
-        f"[{DIM}]Exit the interactive shell (Ctrl+D or `/exit`) and run "
-        f"[bold]opensre {command_str}[/bold] directly from your shell prompt.[/]"
-    )
+    _print_interactive_wizard_handoff(console, command_str)
     return True
 
 

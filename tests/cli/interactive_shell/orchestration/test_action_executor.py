@@ -15,6 +15,7 @@ from rich.console import Console
 from app.cli.interactive_shell.orchestration.action_executor import (
     _MIN_SUBPROCESS_TERMINAL_WIDTH,
     _TASK_OUTPUT_PREFIX_WIDTH,
+    _is_interactive_wizard,
     read_diag,
     run_cd_command,
     run_claude_code_implementation,
@@ -859,6 +860,37 @@ def test_run_synthetic_test_forwards_columns_to_subprocess(
     env = captured[0].get("env")
     assert isinstance(env, dict)
     assert env.get("COLUMNS") == str(110 - _TASK_OUTPUT_PREFIX_WIDTH - 1)
+
+
+@pytest.mark.parametrize(
+    "tokens,expected",
+    [
+        # Single-token interactive wizards.
+        (["onboard"], True),
+        (["ONBOARD"], True),  # case-insensitive
+        (["onboard", "local_llm"], True),  # extra args still classified
+        # Two-token interactive wizard.
+        (["integrations", "setup"], True),
+        (["INTEGRATIONS", "SETUP"], True),
+        (["integrations", "setup", "datadog"], True),
+        # Two-token NON-wizard under integrations — must NOT match.
+        (["integrations", "list"], False),
+        (["integrations", "verify"], False),
+        # Other subcommands — must NOT match.
+        (["health"], False),
+        (["version"], False),
+        (["agents", "list"], False),
+        # Edge: empty.
+        ([], False),
+    ],
+)
+def test_is_interactive_wizard_classifies_command_paths(tokens: list[str], expected: bool) -> None:
+    """The wizard classifier is the data-driven contract behind both the
+    LLM-classified refusal and the ``/onboard`` slash refusal. Adding a
+    new interactive command later should be a one-line set entry — this
+    test pins the current set + the case-insensitive lookup behavior.
+    """
+    assert _is_interactive_wizard(tokens) is expected
 
 
 def test_run_opensre_cli_command_refuses_onboard_with_helpful_message(

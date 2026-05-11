@@ -816,16 +816,60 @@ def run_pwd_command(command: str, session: ReplSession, console: Console) -> Non
 
 _OPENSRE_BLOCKED_SUBCOMMANDS: frozenset[str] = frozenset({"agent"})
 
-# Subcommands that drive a full-TTY interactive wizard (``questionary``
-# radio widgets, multi-step prompts). They cannot run inside the
-# persistent REPL: the wizard's prompt_toolkit Application fights the
-# shell's active prompt_toolkit Application over the same terminal —
-# stdout piped through ``_print_task_output_line`` strips cursor-control
-# escapes and stacks each redraw as plain text; stdout inherited leaves
-# two prompt_toolkit apps writing to the same TTY. Both look broken to
-# the user. Refusing with a clear message and pointing at the right
-# invocation is the smallest fix that doesn't strand the user.
-_INTERACTIVE_OPENSRE_SUBCOMMANDS: frozenset[str] = frozenset({"onboard"})
+# Command paths (one or two whitespace-joined tokens) that drive a
+# full-TTY interactive wizard — ``questionary`` radio widgets, multi-
+# step prompts. They cannot run inside the persistent REPL: the
+# wizard's prompt_toolkit Application fights the shell's active one
+# over the same terminal. Stdout piped through ``_print_task_output_line``
+# strips cursor-control escapes and stacks each redraw as plain text;
+# stdout inherited leaves two prompt_toolkit apps writing to the same
+# TTY. Both look broken to the user. Refusing with a clear message and
+# pointing at the right invocation is the smallest fix that doesn't
+# strand the user.
+#
+# Stored as space-joined paths (e.g. ``"integrations setup"``) so both
+# one-token (``"onboard"``) and two-token cases live in a single
+# data-driven set; :func:`_is_interactive_wizard` does the lookup.
+_INTERACTIVE_OPENSRE_COMMAND_PATHS: frozenset[str] = frozenset(
+    {
+        "onboard",
+        "integrations setup",
+    }
+)
+
+
+def _is_interactive_wizard(tokens: list[str]) -> bool:
+    """True when ``tokens`` name an opensre subcommand whose Click
+    handler drives an interactive wizard (questionary-backed widgets)
+    that needs a full TTY.
+    """
+    if not tokens:
+        return False
+    one = tokens[0].lower()
+    if one in _INTERACTIVE_OPENSRE_COMMAND_PATHS:
+        return True
+    if len(tokens) < 2:
+        return False
+    two = f"{one} {tokens[1].lower()}"
+    return two in _INTERACTIVE_OPENSRE_COMMAND_PATHS
+
+
+def _print_interactive_wizard_handoff(console: Console, command_str: str) -> None:
+    """Print the standardized 'wizard needs a full terminal' handoff
+    message. Used by both :func:`run_opensre_cli_command` (LLM-classified
+    intent path) and ``cli_parity._cmd_onboard`` (slash-command path) so
+    the user sees the same message regardless of how the wizard was
+    triggered.
+    """
+    console.print(
+        f"[{WARNING}]`opensre {command_str}` is an interactive wizard "
+        "that needs a full terminal.[/]"
+    )
+    console.print(
+        f"[{DIM}]Exit the interactive shell (Ctrl+D or `/exit`) and run "
+        f"[bold]opensre {command_str}[/bold] directly from your shell prompt.[/]"
+    )
+
 
 _READ_ONLY_OPENSRE_SUBCOMMANDS: frozenset[str] = frozenset(
     {
@@ -970,20 +1014,9 @@ def run_opensre_cli_command(
         console.print(f"[{ERROR}]Cannot run `opensre {first_token}`: subcommand is blocked.[/]")
         return False
 
-    second_token = tokens[1].lower() if len(tokens) > 1 else ""
-    is_interactive_wizard = first_token in _INTERACTIVE_OPENSRE_SUBCOMMANDS or (
-        first_token == "integrations" and second_token == "setup"
-    )
-    if is_interactive_wizard:
+    if _is_interactive_wizard(tokens):
         command_str = " ".join(tokens)
-        console.print(
-            f"[{WARNING}]`opensre {command_str}` is an interactive wizard "
-            "that needs a full terminal.[/]"
-        )
-        console.print(
-            f"[{DIM}]Exit the interactive shell (Ctrl+D or `/exit`) and run "
-            f"[bold]opensre {command_str}[/bold] directly from your shell prompt.[/]"
-        )
+        _print_interactive_wizard_handoff(console, command_str)
         session.record("cli_command", f"opensre {command_str}", ok=False)
         return True
 
