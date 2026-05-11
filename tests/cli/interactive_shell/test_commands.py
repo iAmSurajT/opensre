@@ -1287,7 +1287,6 @@ class TestCliDelegatedCommands:
     @pytest.mark.parametrize(
         "command,expected_args",
         [
-            ("/onboard", ["onboard"]),
             ("/deploy ec2", ["deploy", "ec2"]),
             ("/remote health", ["remote", "health"]),
             ("/tests list", ["tests", "list"]),
@@ -1310,6 +1309,56 @@ class TestCliDelegatedCommands:
         monkeypatch.setattr(m, "run_cli_command", _fake_run_cli_command)
         dispatch_slash(command, ReplSession(), Console())
         assert captured == [expected_args]
+
+    def test_slash_onboard_refuses_with_helpful_message(self, monkeypatch: object) -> None:
+        """``/onboard`` must NOT spawn the onboarding subprocess from inside
+        the REPL — the wizard's prompt_toolkit Application fights the
+        shell's active one and produces a stacked-widget rendering bug.
+        Refuse with a clear pointer to the right invocation instead.
+        """
+        from app.cli.interactive_shell.command_registry import cli_parity as m
+
+        captured: list[list[str]] = []
+
+        def _fake_run_cli_command(_console: Console, args: list[str], **kwargs: object) -> bool:
+            captured.append(args)
+            return True
+
+        monkeypatch.setattr(m, "run_cli_command", _fake_run_cli_command)
+
+        buf = io.StringIO()
+        # Width >80 so the multi-line warning doesn't wrap mid-substring.
+        console = Console(file=buf, force_terminal=False, width=200)
+        dispatch_slash("/onboard", ReplSession(), console)
+
+        assert captured == [], "subprocess delegate must not be called"
+        out = buf.getvalue()
+        assert "needs a full terminal" in out
+        assert "opensre onboard" in out
+
+    def test_slash_onboard_with_args_forwards_them_in_hint(self, monkeypatch: object) -> None:
+        """Refusal message should preserve user-supplied args so
+        the user can copy-paste the suggested ``opensre onboard …``
+        invocation without re-typing.
+        """
+        from app.cli.interactive_shell.command_registry import cli_parity as m
+
+        captured: list[list[str]] = []
+
+        def _fake_run_cli_command(_console: Console, args: list[str], **kwargs: object) -> bool:
+            captured.append(args)
+            return True
+
+        monkeypatch.setattr(m, "run_cli_command", _fake_run_cli_command)
+
+        buf = io.StringIO()
+        # Width >80 so the multi-line warning doesn't wrap mid-substring.
+        console = Console(file=buf, force_terminal=False, width=200)
+        dispatch_slash("/onboard local_llm", ReplSession(), console)
+
+        assert captured == []
+        out = buf.getvalue()
+        assert "opensre onboard local_llm" in out
 
     def test_tests_run_subcommand_starts_background_task(self, monkeypatch: object) -> None:
         from app.cli.interactive_shell.command_registry import cli_parity as m

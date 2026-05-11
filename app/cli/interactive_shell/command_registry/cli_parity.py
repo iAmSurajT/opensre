@@ -21,7 +21,7 @@ from app.cli.interactive_shell.orchestration.action_executor import (
     start_background_cli_task,
 )
 from app.cli.interactive_shell.runtime import ReplSession, TaskKind
-from app.cli.interactive_shell.ui import DIM, ERROR
+from app.cli.interactive_shell.ui import DIM, ERROR, WARNING
 
 _UPDATE_SUBPROCESS_TIMEOUT_SECONDS = 300
 _BACKGROUND_TEST_SUBCOMMANDS = frozenset({"run", "synthetic", "cloudopsbench"})
@@ -63,7 +63,21 @@ def run_cli_command(
 
 
 def _cmd_onboard(session: ReplSession, console: Console, args: list[str]) -> bool:  # noqa: ARG001
-    return run_cli_command(console, ["onboard", *args])
+    # Onboard is a full-TTY interactive wizard (``questionary`` radio
+    # widgets, multi-step prompts). It cannot run inside the persistent
+    # REPL — the wizard's prompt_toolkit Application fights the shell's
+    # active one over the same terminal, producing the stacked-widget
+    # rendering bug. Refuse with a clear pointer to the right invocation
+    # instead of spawning a subprocess that will fail visually.
+    command_str = "onboard" + ((" " + " ".join(args)) if args else "")
+    console.print(
+        f"[{WARNING}]`/onboard` runs an interactive wizard that needs a full terminal.[/]"
+    )
+    console.print(
+        f"[{DIM}]Exit the interactive shell (Ctrl+D or `/exit`) and run "
+        f"[bold]opensre {command_str}[/bold] directly from your shell prompt.[/]"
+    )
+    return True
 
 
 def _cmd_deploy(session: ReplSession, console: Console, args: list[str]) -> bool:  # noqa: ARG001

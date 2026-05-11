@@ -816,6 +816,17 @@ def run_pwd_command(command: str, session: ReplSession, console: Console) -> Non
 
 _OPENSRE_BLOCKED_SUBCOMMANDS: frozenset[str] = frozenset({"agent"})
 
+# Subcommands that drive a full-TTY interactive wizard (``questionary``
+# radio widgets, multi-step prompts). They cannot run inside the
+# persistent REPL: the wizard's prompt_toolkit Application fights the
+# shell's active prompt_toolkit Application over the same terminal —
+# stdout piped through ``_print_task_output_line`` strips cursor-control
+# escapes and stacks each redraw as plain text; stdout inherited leaves
+# two prompt_toolkit apps writing to the same TTY. Both look broken to
+# the user. Refusing with a clear message and pointing at the right
+# invocation is the smallest fix that doesn't strand the user.
+_INTERACTIVE_OPENSRE_SUBCOMMANDS: frozenset[str] = frozenset({"onboard"})
+
 _READ_ONLY_OPENSRE_SUBCOMMANDS: frozenset[str] = frozenset(
     {
         "health",
@@ -958,6 +969,23 @@ def run_opensre_cli_command(
     if first_token in _OPENSRE_BLOCKED_SUBCOMMANDS:
         console.print(f"[{ERROR}]Cannot run `opensre {first_token}`: subcommand is blocked.[/]")
         return False
+
+    second_token = tokens[1].lower() if len(tokens) > 1 else ""
+    is_interactive_wizard = first_token in _INTERACTIVE_OPENSRE_SUBCOMMANDS or (
+        first_token == "integrations" and second_token == "setup"
+    )
+    if is_interactive_wizard:
+        command_str = " ".join(tokens)
+        console.print(
+            f"[{WARNING}]`opensre {command_str}` is an interactive wizard "
+            "that needs a full terminal.[/]"
+        )
+        console.print(
+            f"[{DIM}]Exit the interactive shell (Ctrl+D or `/exit`) and run "
+            f"[bold]opensre {command_str}[/bold] directly from your shell prompt.[/]"
+        )
+        session.record("cli_command", f"opensre {command_str}", ok=False)
+        return True
 
     command_classification = _classify_opensre_command(tokens)
     from app.cli.interactive_shell.orchestration.execution_policy import (
