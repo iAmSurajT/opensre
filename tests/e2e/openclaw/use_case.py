@@ -19,6 +19,7 @@ from app.integrations.openclaw import (
     OpenClawConfig,
     call_openclaw_tool,
     describe_openclaw_error,
+    validate_openclaw_config,
 )
 from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle
 
@@ -30,13 +31,20 @@ from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle
 # through the agent's tool selection.
 _PROBE_TOOL = "conversations_list"
 
+# Fault injectors stash an :class:`OpenClawConfig` override here when a
+# scenario needs to point the use_case driver at something other than
+# the default stdio bridge (e.g. ``inject_wrong_endpoint`` overrides
+# the transport and URL). The use_case reads the override and falls
+# back to ``_build_stdio_config`` when absent.
+HANDLE_CONFIG_KEY = "openclaw_config"
+
 
 def _build_stdio_config() -> OpenClawConfig:
-    """Build a stdio-transport OpenClaw config that points the bridge at
-    the local Gateway (or its absence, for gateway-down scenarios).
+    """Build the canonical stdio-transport config that drives the
+    bridge subprocess.
 
-    The bridge subprocess inherits the parent's PATH and config dir, so
-    a contributor running this test with their normal ``~/.openclaw/``
+    The bridge inherits the parent's PATH and config dir, so a
+    contributor running this test with their normal ``~/.openclaw/``
     config gets a bridge that tries to talk to whatever Gateway URL
     that config names. For the gateway-down scenario we just need the
     bridge to fail; it doesn't matter which Gateway address it tries.
@@ -52,6 +60,20 @@ def _build_stdio_config() -> OpenClawConfig:
         timeout_seconds=10.0,
         integration_id="openclaw-e2e",
     )
+
+
+def _resolve_config(handle: OpenClawHandle) -> OpenClawConfig:
+    """Return the per-scenario config override if a fault injector
+    stashed one, otherwise the canonical stdio bridge config.
+
+    The override pattern keeps the use_case interface uniform — every
+    fault scenario calls ``drive_openclaw_conversation(handle)`` and
+    the per-fault wiring lives on the handle.
+    """
+    override = handle.extra.get(HANDLE_CONFIG_KEY)
+    if isinstance(override, OpenClawConfig):
+        return override
+    return _build_stdio_config()
 
 
 def drive_openclaw_conversation(handle: OpenClawHandle) -> dict[str, Any]:
@@ -77,16 +99,28 @@ def drive_openclaw_conversation(handle: OpenClawHandle) -> dict[str, Any]:
     fault setup rather than a passing "RCA correctly identified
     nothing" run.
     """
-    config = _build_stdio_config()
+    config = _resolve_config(handle)
     failure_mode = _infer_failure_mode(handle)
     base_context: dict[str, Any] = {
         "tool": _PROBE_TOOL,
         "transport_mode": config.mode,
         "command": config.command,
         "args": " ".join(config.args),
+        "url": config.url,
         "gateway_url": handle.gateway_url,
         "failure_mode": failure_mode,
     }
+
+    # Pre-flight config validation. ``validate_openclaw_config`` catches
+    # the Control-UI-vs-MCP-bridge misconfiguration (and similar) before
+    # we attempt a tool call, surfacing the same hint a user would see
+    # from ``opensre integrations verify``. For stdio configs this is a
+    # pass-through.
+    validation = validate_openclaw_config(config)
+    if not validation.ok:
+        base_context["last_error"] = (validation.detail or "config invalid")[:200]
+        base_context["error_detail"] = validation.detail or "config invalid"
+        return base_context
 
     try:
         result = call_openclaw_tool(config, _PROBE_TOOL, {})
@@ -127,13 +161,14 @@ def _infer_failure_mode(handle: OpenClawHandle) -> str:
     """Tag the failure mode based on handle state so the orchestrator
     can build a more targeted alert annotation.
 
-    The scenario PRs override this by inspecting handle.extra — for
-    gateway-down (the first scenario) the heuristic below is enough:
-    Gateway absent ⇒ ``"gateway_down"``.
+    Fault injectors stash a ``"fault"`` key in ``handle.extra`` to be
+    explicit about which scenario set up the handle. Falls back to a
+    "Gateway absent ⇒ gateway_down" inference for backward-compat with
+    handles booted via ``boot_openclaw(with_gateway=False)`` directly.
     """
+    explicit = handle.extra.get("fault")
+    if isinstance(explicit, str) and explicit:
+        return explicit
     if handle.gateway_pid is None:
         return "gateway_down"
-    # Future fault scenarios (#5 hung-tool-call, #6 wrong-endpoint)
-    # will stash their hint in ``handle.extra`` so this stays a
-    # single-source-of-truth dispatcher.
-    return str(handle.extra.get("fault", "unknown"))
+    return "unknown"

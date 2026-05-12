@@ -13,7 +13,15 @@ on a handle booted with ``with_gateway=False``).
 
 from __future__ import annotations
 
+from app.integrations.openclaw import OpenClawConfig
 from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle, teardown_openclaw
+
+# Port + URL of OpenClaw's Control UI / Gateway service. ``opensre``
+# users sometimes mistake this for the MCP bridge endpoint —
+# :func:`app.integrations.openclaw._is_probable_openclaw_control_ui_url`
+# detects that misconfiguration and the wrong-endpoint scenario asserts
+# the hint propagates through to the RCA output.
+_CONTROL_UI_URL = "http://127.0.0.1:18789/"
 
 
 def inject_gateway_down(handle: OpenClawHandle) -> None:
@@ -31,6 +39,7 @@ def inject_gateway_down(handle: OpenClawHandle) -> None:
     # Clear handle fields so downstream callers see an unambiguously
     # "Gateway down" handle even if they re-inspect after the call.
     handle.gateway_pid = None
+    handle.extra["fault"] = "gateway_down"
 
 
 def inject_hung_tool_call(handle: OpenClawHandle) -> None:
@@ -45,13 +54,25 @@ def inject_hung_tool_call(handle: OpenClawHandle) -> None:
 
 
 def inject_wrong_endpoint(handle: OpenClawHandle) -> None:
-    """Reconfigure the handle to point at the Control UI port (18789).
+    """Reconfigure the handle so the use_case driver targets OpenClaw's
+    Control UI / Gateway port (18789) instead of the MCP bridge.
 
-    ``validate_openclaw_config`` should detect this via
-    :func:`app.integrations.openclaw._is_probable_openclaw_control_ui_url`;
-    the e2e asserts the resulting hint propagates through the
-    investigation surface.
+    A common user-side misconfiguration: pasting the Gateway URL into
+    the MCP integration config. ``validate_openclaw_config`` detects
+    this via :func:`app.integrations.openclaw._is_probable_openclaw_control_ui_url`
+    and returns the canonical "Use mode `stdio` with command `openclaw`
+    and args `mcp serve`" hint. This injector stashes the matching
+    misconfigured config on ``handle.extra`` so the use_case driver
+    picks it up via :data:`tests.e2e.openclaw.use_case.HANDLE_CONFIG_KEY`.
 
-    TODO(#issue-6): implement.
+    No process is spawned and no Gateway interaction happens — the
+    failure surfaces from config validation alone, which is the entire
+    point of the scenario.
     """
-    raise NotImplementedError("inject_wrong_endpoint stub — implemented in the wrong-endpoint PR")
+    handle.extra["openclaw_config"] = OpenClawConfig(
+        mode="streamable-http",
+        url=_CONTROL_UI_URL,
+        timeout_seconds=10.0,
+        integration_id="openclaw-e2e-wrong-endpoint",
+    )
+    handle.extra["fault"] = "wrong_endpoint"
