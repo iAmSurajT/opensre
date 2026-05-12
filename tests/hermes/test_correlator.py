@@ -262,8 +262,8 @@ class TestCorrelatingSink:
                 RouteDestination.PAGER: delivered.append,
             },
         )
-        sink(_incident(seconds=0))   # first occurrence — plain fingerprint
-        sink(_incident(seconds=5))   # escalates
+        sink(_incident(seconds=0))  # first occurrence — plain fingerprint
+        sink(_incident(seconds=5))  # escalates
         assert len(delivered) == 2
         fp_first = delivered[0].fingerprint
         fp_escalated = delivered[1].fingerprint

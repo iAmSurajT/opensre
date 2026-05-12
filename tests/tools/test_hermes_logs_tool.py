@@ -146,9 +146,7 @@ class TestLogPathValidation:
         assert "error" in result
         assert "permitted" in result["error"]
 
-    def test_accepts_path_within_env_override_dir(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_accepts_path_within_env_override_dir(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path, _LINES)
         # autouse fixture already sets HERMES_LOG_PATH to tmp_path/errors.log
         # so tmp_path is in the allow-list.
@@ -156,9 +154,7 @@ class TestLogPathValidation:
         assert "error" not in result
         assert len(result["records"]) == 3
 
-    def test_rejects_traversal_outside_allowed_dir(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_rejects_traversal_outside_allowed_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Even with a symlink pointing outside tmp_path, resolve() sees
         # the real path and the validator rejects it.
         monkeypatch.delenv("HERMES_LOG_PATH", raising=False)
