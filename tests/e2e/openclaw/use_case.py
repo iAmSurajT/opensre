@@ -1,39 +1,139 @@
-"""Pure business logic that drives an OpenClaw conversation.
+"""Drive an OpenClaw conversation against a handle, capture the failure.
 
-No fixtures, no pytest, no fault injection. Each scenario test composes
-this with a fault-injection helper and the OpenSRE investigation runner.
+Pure business logic: no pytest, no fixtures, no fault injection. Given
+an :class:`OpenClawHandle`, builds an :class:`OpenClawConfig` for the
+stdio MCP bridge, attempts to call an OpenClaw MCP tool, and returns a
+context dict shaped for :func:`orchestrator.run_openclaw_investigation`.
 
-Stub only — implemented alongside the first fault scenario PR (#issue-3,
-gateway down), which is the first PR that actually needs to drive a
-real OpenClaw conversation.
+Used by every fault scenario test — gateway-down, hung-tool-call, and
+wrong-endpoint all share the same "call a tool, capture what fires"
+pattern. The fault is set up beforehand by ``fault_injection.inject_*``;
+this function just observes the resulting failure.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from app.integrations.openclaw import (
+    OpenClawConfig,
+    call_openclaw_tool,
+    describe_openclaw_error,
+)
 from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle
+
+# Tool we call to exercise the bridge. ``conversations_list`` is the
+# OpenClaw MCP tool name (``search_openclaw_conversations`` is the
+# OpenSRE-side wrapper name in
+# :mod:`app.tools.OpenClawMCPTool`). We hit it raw here so the test
+# exercises the same code path as a real investigation, without going
+# through the agent's tool selection.
+_PROBE_TOOL = "conversations_list"
+
+
+def _build_stdio_config() -> OpenClawConfig:
+    """Build a stdio-transport OpenClaw config that points the bridge at
+    the local Gateway (or its absence, for gateway-down scenarios).
+
+    The bridge subprocess inherits the parent's PATH and config dir, so
+    a contributor running this test with their normal ``~/.openclaw/``
+    config gets a bridge that tries to talk to whatever Gateway URL
+    that config names. For the gateway-down scenario we just need the
+    bridge to fail; it doesn't matter which Gateway address it tries.
+    """
+    return OpenClawConfig(
+        mode="stdio",
+        command="openclaw",
+        args=("mcp", "serve"),
+        # Short timeout so a hung-tool-call test can fail fast in the
+        # follow-up scenario (#5). Gateway-down typically fails within
+        # 1-2s on its own (Connection closed) so this is well above
+        # what the failure path needs.
+        timeout_seconds=10.0,
+        integration_id="openclaw-e2e",
+    )
 
 
 def drive_openclaw_conversation(handle: OpenClawHandle) -> dict[str, Any]:
-    """Run a single OpenClaw tool call against ``handle`` and return the
-    captured failure context.
+    """Run a single OpenClaw MCP tool call against ``handle``, return
+    the captured failure context.
 
-    Calls ``search_openclaw_conversations`` (or another MCP tool, per
-    scenario), catches whatever exception fires, and returns a context
-    dict shaped for ``orchestrator.run_openclaw_investigation``:
+    Returns a dict shaped for :func:`orchestrator.run_openclaw_investigation`:
 
         {
-          "tool": "search_openclaw_conversations",
-          "transport_mode": "stdio" | "streamable-http" | "sse",
-          "command": "...",
-          "args": "...",
-          "url": "...",
-          "last_error": "<exception message>",
+          "tool": "conversations_list",
+          "transport_mode": "stdio",
+          "command": "openclaw",
+          "args": "mcp serve",
+          "gateway_url": "ws://127.0.0.1:19001" | None,
+          "last_error": "<one-line summary>",
+          "error_detail": "<full describe_openclaw_error output>",
+          "failure_mode": "gateway_down" | "timeout" | "wrong_endpoint" | "unknown",
         }
 
-    TODO(#issue-3): implement.
+    On the happy path (no fault injected, Gateway healthy) the dict has
+    ``"failure_mode": "no_failure"`` and the assertions in the scenario
+    test should fail explicitly so the test author sees the missing
+    fault setup rather than a passing "RCA correctly identified
+    nothing" run.
     """
-    raise NotImplementedError(
-        "drive_openclaw_conversation stub — implemented in the first scenario PR"
+    config = _build_stdio_config()
+    failure_mode = _infer_failure_mode(handle)
+    base_context: dict[str, Any] = {
+        "tool": _PROBE_TOOL,
+        "transport_mode": config.mode,
+        "command": config.command,
+        "args": " ".join(config.args),
+        "gateway_url": handle.gateway_url,
+        "failure_mode": failure_mode,
+    }
+
+    try:
+        result = call_openclaw_tool(config, _PROBE_TOOL, {})
+    except BaseException as err:  # noqa: BLE001 — capture everything for the orchestrator
+        base_context["last_error"] = (
+            str(err).splitlines()[0][:200] if str(err) else type(err).__name__
+        )
+        base_context["error_detail"] = describe_openclaw_error(err, config)
+        return base_context
+
+    # No exception — either the Gateway was actually up (test setup bug)
+    # or the MCP tool returned an ``is_error`` payload. The bridge maps
+    # most gateway failures to ``is_error=True`` rather than letting them
+    # raise, so we have to re-run them through ``describe_openclaw_error``
+    # ourselves to get the canonical hint surface (otherwise the
+    # orchestrator's alert would carry just the raw "ECONNREFUSED 127.0.0.1"
+    # text without the "start `openclaw gateway run`" remediation).
+    if result.get("is_error"):
+        error_text = str(result.get("text", "") or "")
+        # ``describe_openclaw_error`` wants an exception; synthesize one
+        # carrying the same message so the indicator-matching logic in
+        # ``_looks_like_openclaw_gateway_unavailable`` still fires.
+        synthetic_error = RuntimeError(error_text)
+        base_context["last_error"] = error_text.splitlines()[0][:200]
+        base_context["error_detail"] = describe_openclaw_error(synthetic_error, config)
+        return base_context
+
+    base_context["failure_mode"] = "no_failure"
+    base_context["last_error"] = ""
+    base_context["error_detail"] = (
+        "OpenClaw MCP tool call succeeded — no fault was active. "
+        "Did the fault injector run? Was the Gateway accidentally up?"
     )
+    return base_context
+
+
+def _infer_failure_mode(handle: OpenClawHandle) -> str:
+    """Tag the failure mode based on handle state so the orchestrator
+    can build a more targeted alert annotation.
+
+    The scenario PRs override this by inspecting handle.extra — for
+    gateway-down (the first scenario) the heuristic below is enough:
+    Gateway absent ⇒ ``"gateway_down"``.
+    """
+    if handle.gateway_pid is None:
+        return "gateway_down"
+    # Future fault scenarios (#5 hung-tool-call, #6 wrong-endpoint)
+    # will stash their hint in ``handle.extra`` so this stays a
+    # single-source-of-truth dispatcher.
+    return str(handle.extra.get("fault", "unknown"))

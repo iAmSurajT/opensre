@@ -1,34 +1,36 @@
 """Fault injectors for the OpenClaw end-to-end test suite.
 
-Each scenario gets its own injector. They're independent — issues #3
-(gateway down), #5 (hung tool call), and #6 (wrong endpoint) can be
-implemented in parallel after the boot helpers (#2) land.
+Each scenario gets its own injector. They're independent — issues #5
+(hung tool call) and #6 (wrong endpoint) can be implemented in parallel
+after :func:`inject_gateway_down` (this PR / #3) lands.
 
-Stubs raise ``NotImplementedError`` until their scenario PR fills them
-in. See ``tests/e2e/openclaw/README.md`` for the contract each injector
-must satisfy.
+Each injector takes a previously booted :class:`OpenClawHandle` and
+mutates the state so the next ``use_case.drive_openclaw_conversation``
+call hits the broken path. Injectors are idempotent — safe to call on
+handles that are already in the target state (e.g. ``inject_gateway_down``
+on a handle booted with ``with_gateway=False``).
 """
 
 from __future__ import annotations
 
-from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle
+from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle, teardown_openclaw
 
 
 def inject_gateway_down(handle: OpenClawHandle) -> None:
-    """Tear down the Gateway while leaving the MCP bridge alive.
+    """Ensure the OpenClaw Gateway is **not** running on this handle.
 
-    After this call, ``search_openclaw_conversations`` against the
-    handle will fail with ``Connection closed`` / ``ECONNREFUSED`` —
-    the exact failure surfaced by
-    :func:`app.integrations.openclaw._looks_like_openclaw_gateway_unavailable`.
-
-    Intentionally idempotent: callers may pass a handle booted with
-    ``with_gateway=False`` (no Gateway to tear down). In that case this
-    function is a no-op.
-
-    TODO(#issue-3): implement.
+    Tears down the Gateway process if the handle has one. When called on
+    a bare handle (booted via ``with_gateway=False``) this is a no-op.
+    After this call, any ``openclaw mcp serve`` bridge spawned by an MCP
+    client will fail to reach a Gateway — surfacing the
+    ``Connection closed`` / ``ECONNREFUSED`` failure mode that
+    :func:`app.integrations.openclaw._looks_like_openclaw_gateway_unavailable`
+    detects.
     """
-    raise NotImplementedError("inject_gateway_down stub — implemented in the gateway-down PR")
+    teardown_openclaw(handle)
+    # Clear handle fields so downstream callers see an unambiguously
+    # "Gateway down" handle even if they re-inspect after the call.
+    handle.gateway_pid = None
 
 
 def inject_hung_tool_call(handle: OpenClawHandle) -> None:
