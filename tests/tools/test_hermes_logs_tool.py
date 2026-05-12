@@ -46,6 +46,17 @@ class TestScanMode:
         rules = {i["rule"] for i in result["incidents"]}
         assert "error_severity" in rules
 
+    def test_scan_flushes_open_traceback_at_end_of_window(self, tmp_path: Path) -> None:
+        """A traceback with no following log line must still emit via classifier.flush()."""
+        lines = [
+            "2026-05-12 00:00:00,000 ERROR tools.x: Traceback (most recent call last):",
+            '  File "/x", line 1, in foo',
+        ]
+        log = _write_log(tmp_path, lines)
+        result = get_hermes_logs(op="scan", log_path=str(log), tail_lines=10)
+        assert "error" not in result
+        assert any(i["rule"] == "traceback" for i in result["incidents"])
+
     def test_scan_respects_tail_lines(self, tmp_path: Path) -> None:
         # Generate enough lines that the tail cap matters.
         lines = [

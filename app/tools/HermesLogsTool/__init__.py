@@ -40,6 +40,7 @@ Two modes:
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -342,6 +343,10 @@ def get_hermes_logs(
             "records": [],
             "incidents": [],
         }
+
+    flushed = tuple(classifier.flush())
+    if flushed:
+        poll = replace(poll, incidents=poll.incidents + flushed)
 
     return _serialise_poll(
         poll,

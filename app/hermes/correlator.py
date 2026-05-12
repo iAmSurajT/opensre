@@ -29,14 +29,6 @@ from typing import Final
 
 from app.hermes.incident import HermesIncident, IncidentSeverity
 
-__all__ = [
-    "CorrelatorDecision",
-    "IncidentCorrelator",
-    "RouteDestination",
-    "default_routing_matrix",
-]
-
-
 DEFAULT_DEDUP_WINDOW_S: Final[float] = 300.0  # 5 minutes
 DEFAULT_ESCALATION_WINDOW_S: Final[float] = 600.0  # 10 minutes
 DEFAULT_ESCALATION_THRESHOLD: Final[int] = 3
@@ -231,7 +223,13 @@ def correlate_all(
     return [correlator.correlate(inc) for inc in incidents]
 
 
-__all__.append("correlate_all")
+__all__ = [
+    "CorrelatorDecision",
+    "IncidentCorrelator",
+    "RouteDestination",
+    "default_routing_matrix",
+    "correlate_all",
+]
 
 
 def _bump_severity(current: IncidentSeverity) -> IncidentSeverity:
