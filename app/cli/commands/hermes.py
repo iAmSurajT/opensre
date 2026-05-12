@@ -25,6 +25,8 @@ from typing import Any
 import click
 
 from app.hermes.agent import DEFAULT_LOG_PATH, HermesAgent
+from app.hermes.correlating_sink import CorrelatingSink
+from app.hermes.correlator import IncidentCorrelator, RouteDestination
 from app.hermes.investigation import run_incident_investigation
 from app.hermes.sinks import TelegramSink
 from app.watch_dog.alarms import AlarmDispatcher, load_credentials_from_env
@@ -83,12 +85,59 @@ def hermes_command() -> None:
         "OPENSRE_HERMES_INVESTIGATE=1 to enable globally."
     ),
 )
+@click.option(
+    "--correlate/--no-correlate",
+    "correlate",
+    default=True,
+    show_default=True,
+    help=(
+        "Route classifier output through the IncidentCorrelator (dedup, "
+        "severity escalation, rule→destination routing). Disable to pipe "
+        "raw incidents straight into the TelegramSink — the legacy behavior."
+    ),
+)
+@click.option(
+    "--dedup-window-seconds",
+    type=float,
+    default=300.0,
+    show_default=True,
+    help=(
+        "Correlator dedup window. Identical fingerprints within this window "
+        "are suppressed unless escalation breaks through. Ignored when "
+        "--no-correlate is set."
+    ),
+)
+@click.option(
+    "--escalation-threshold",
+    type=int,
+    default=3,
+    show_default=True,
+    help=(
+        "Number of repeat hits within --escalation-window-seconds that "
+        "bumps an incident's severity one rung (HIGH→CRITICAL). Must be ≥2. "
+        "Ignored when --no-correlate is set."
+    ),
+)
+@click.option(
+    "--escalation-window-seconds",
+    type=float,
+    default=600.0,
+    show_default=True,
+    help=(
+        "Window over which repeat hits are counted for escalation. Ignored "
+        "when --no-correlate is set."
+    ),
+)
 def hermes_watch(
     log_path: Path | None,
     chat_id: str | None,
     cooldown_seconds: float,
     from_start: bool,
     investigate: bool | None,
+    correlate: bool,
+    dedup_window_seconds: float,
+    escalation_threshold: int,
+    escalation_window_seconds: float,
 ) -> None:
     """Start the Hermes log watcher and block until interrupted.
 
@@ -101,7 +150,31 @@ def hermes_watch(
 
     investigate_enabled = _resolve_investigate_flag(investigate)
     bridge = run_incident_investigation if investigate_enabled else None
-    sink = TelegramSink(dispatcher, investigation_bridge=bridge)
+    telegram_sink = TelegramSink(dispatcher, investigation_bridge=bridge)
+
+    correlator: IncidentCorrelator | None = None
+    sink: Any
+    if correlate:
+        correlator = IncidentCorrelator(
+            dedup_window_s=dedup_window_seconds,
+            escalation_window_s=escalation_window_seconds,
+            escalation_threshold=escalation_threshold,
+        )
+        # PAGER destinations currently fall back to Telegram with a clear
+        # marker — there is no separate pager integration yet. Routing the
+        # same sink under both keys keeps escalations visible until a
+        # dedicated PagerDuty/Opsgenie sink is added.
+        sink = CorrelatingSink(
+            correlator=correlator,
+            routes={
+                RouteDestination.TELEGRAM: telegram_sink,
+                RouteDestination.TELEGRAM_WITH_RCA: telegram_sink,
+                RouteDestination.PAGER: telegram_sink,
+            },
+            default_route=telegram_sink,
+        )
+    else:
+        sink = telegram_sink
 
     resolved_log_path = log_path or DEFAULT_LOG_PATH
     agent = HermesAgent(
@@ -115,7 +188,9 @@ def hermes_watch(
 
     click.echo(
         f"hermes-watch: tailing {resolved_log_path} "
-        f"(cooldown={cooldown_seconds:.0f}s, investigate={'on' if investigate_enabled else 'off'})"
+        f"(cooldown={cooldown_seconds:.0f}s, "
+        f"investigate={'on' if investigate_enabled else 'off'}, "
+        f"correlate={'on' if correlate else 'off'})"
     )
 
     agent.start()
@@ -130,7 +205,17 @@ def hermes_watch(
         # Drain in-flight investigation calls (no-op when bridge is
         # disabled). Done after agent.stop() so no new bridge submits
         # can race the shutdown.
-        sink.close()
+        telegram_sink.close()
+        if correlator is not None and isinstance(sink, CorrelatingSink):
+            snapshot = sink.metrics_snapshot()
+            click.echo(
+                "hermes-watch: correlator metrics "
+                f"delivered={snapshot['delivered']} "
+                f"suppressed={snapshot['suppressed']} "
+                f"escalated={snapshot['escalated']} "
+                f"dropped={snapshot['dropped']} "
+                f"unrouted={snapshot['unrouted']}"
+            )
         click.echo("hermes-watch: stopped.")
 
 
