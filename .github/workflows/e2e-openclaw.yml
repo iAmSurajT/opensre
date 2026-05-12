@@ -1,0 +1,128 @@
+# Optional OpenClaw end-to-end CI when PR label `ci:openclaw` is present.
+# Separate workflow + concurrency group so OpenClaw label runs are isolated
+# from the main CI lane. Mirrors the `ci:windows` pattern.
+
+name: CI Labels (OpenClaw E2E)
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: ci-labels-openclaw-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openclaw-quality:
+    if: contains(github.event.pull_request.labels.*.name, 'ci:openclaw')
+    name: openclaw quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Lint
+        run: uv run python -m ruff check app/ tests/
+
+      - name: Format check
+        run: uv run python -m ruff format --check app/ tests/
+
+      - name: Typecheck
+        run: uv run python -m mypy app/
+
+  openclaw-test:
+    if: contains(github.event.pull_request.labels.*.name, 'ci:openclaw')
+    name: openclaw test
+    needs: [openclaw-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+
+    env:
+      # OpenClaw e2e exercises only the OpenClaw integration — the
+      # bridge spawn, the gateway-down failure, the RCA call. So the
+      # secrets envelope is intentionally narrower than the main
+      # ``test`` job in ``ci.yml`` (which runs the full suite + needs
+      # Grafana / GCloud / JWT secrets). Adding more here when scenarios
+      # grow to need them is fine; the goal is to keep the secret
+      # surface minimal until a concrete test pulls one in.
+      #
+      # ``ANTHROPIC_API_KEY`` gates the full-RCA orchestrator test —
+      # the use-case sub-tests run without it. LangSmith vars are
+      # optional; runs pass without them but lose the e2e trace.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+      LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
+      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node 22 (OpenClaw requires >=22.12)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install OpenClaw CLI
+        # OpenClaw ships as an npm package. If they publish under a
+        # different name (scoped, prefixed, etc.), update this line —
+        # tests cleanly skip when `openclaw --version` returns the Node
+        # version error so a wrong install path won't break the build.
+        run: npm install -g openclaw
+
+      - name: Verify OpenClaw CLI
+        run: openclaw --version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Run OpenClaw E2E suite
+        run: uv run python -m pytest -m e2e -v tests/e2e/openclaw/
+
+      - name: Upload gateway logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openclaw-gateway-logs
+          path: /tmp/openclaw-e2e-logs/
+          if-no-files-found: ignore
+          retention-days: 7
