@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import app.hermes.poller as hermes_poller
 from app.hermes.classifier import IncidentClassifier
 from app.hermes.incident import LogLevel
 from app.hermes.poller import HermesLogCursor, poll_hermes_logs
@@ -164,6 +165,31 @@ class TestMissingFile:
         poll = poll_hermes_logs(ghost, HermesLogCursor.at_start(ghost))
         assert poll.records == ()
         assert poll.cursor.offset == 0
+
+
+class TestByteBudgetLineBoundary:
+    def test_budget_stops_at_line_boundary_and_resumes_next_poll(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Do not partially consume a line when the byte budget runs out mid-read.
+
+        Cursor must rewind before that line so the next poll reads it entirely.
+        """
+        p = tmp_path / "errs.log"
+        line1 = "2026-05-12 00:00:00,000 INFO one: aaa\n"
+        line2 = "2026-05-12 00:00:01,000 INFO two: bbb\n"
+        p.write_text(line1 + line2, encoding="utf-8")
+        b1 = len(line1.encode("utf-8"))
+        monkeypatch.setattr(hermes_poller, "_DEFAULT_MAX_BYTES", b1 + 1)
+
+        first = poll_hermes_logs(p, HermesLogCursor.at_start(p), classifier=IncidentClassifier())
+        assert len(first.records) == 1
+        assert first.records[0].message.endswith("aaa")
+        assert first.cursor.offset == b1
+
+        second = poll_hermes_logs(p, first.cursor, classifier=IncidentClassifier())
+        assert len(second.records) == 1
+        assert second.records[0].message.endswith("bbb")
 
 
 class TestPollUntil:

@@ -217,7 +217,9 @@ class TestCorrelatingSink:
         sink = CorrelatingSink(correlator=corr, routes={})
         with caplog.at_level("INFO", logger="app.hermes.correlating_sink"):
             sink(_incident())
-        assert sink.metrics_snapshot()["unrouted"] == 1
+        snapshot = sink.metrics_snapshot()
+        assert snapshot["delivered"] == 0
+        assert snapshot["unrouted"] == 1
         assert any("no sink registered" in r.message for r in caplog.records)
 
     def test_downstream_sink_exception_does_not_propagate(self) -> None:

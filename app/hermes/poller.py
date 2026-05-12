@@ -297,13 +297,19 @@ def _read_segment(
     with path.open("rb") as handle:
         handle.seek(start_offset)
         # Cap the maximum bytes we'll read in one call so a runaway
-        # log can't OOM us. The read still yields a clean offset for
-        # the next poll.
+        # log can't OOM us. Consume whole lines only: if the next line
+        # cannot fit entirely in ``budget``, seek back before that line so
+        # the caller's cursor retries it on the next poll.
         budget = _DEFAULT_MAX_BYTES
-        for raw in handle:
-            if budget <= 0:
-                # Refuse to advance the cursor past this point; the
-                # next poll will retry from the same offset.
+        while True:
+            line_start = handle.tell()
+            raw = handle.readline()
+            if not raw:
+                new_offset = line_start
+                break
+            if len(raw) > budget:
+                handle.seek(line_start)
+                new_offset = line_start
                 break
             budget -= len(raw)
 

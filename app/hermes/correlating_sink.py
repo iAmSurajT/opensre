@@ -77,15 +77,18 @@ class CorrelatingSink:
 
     def __call__(self, incident: HermesIncident) -> None:
         decision = self._correlator.correlate(incident)
-        self._record(decision)
-        if decision.suppressed or decision.destination is RouteDestination.DROP:
+        if decision.suppressed:
+            self._count_suppressed(decision)
+            return
+        if decision.destination is RouteDestination.DROP:
+            self._count_dropped(decision)
             return
         sink_fn = self._routes.get(decision.destination, self._default_route)
         if sink_fn is None:
             self._warn_missing_route(incident.rule, decision.destination)
-            with self._lock:
-                self._metrics["unrouted"] += 1
+            self._count_unrouted(decision)
             return
+        self._count_delivered(decision)
         try:
             sink_fn(decision.deliver)
         except Exception:  # noqa: BLE001 — sinks must never crash the agent
@@ -100,14 +103,27 @@ class CorrelatingSink:
         with self._lock:
             return dict(self._metrics)
 
-    def _record(self, decision: CorrelatorDecision) -> None:
+    def _count_suppressed(self, decision: CorrelatorDecision) -> None:
         with self._lock:
-            if decision.suppressed:
-                self._metrics["suppressed"] += 1
-            elif decision.destination is RouteDestination.DROP:
-                self._metrics["dropped"] += 1
-            else:
-                self._metrics["delivered"] += 1
+            self._metrics["suppressed"] += 1
+            if decision.escalated_from is not None:
+                self._metrics["escalated"] += 1
+
+    def _count_dropped(self, decision: CorrelatorDecision) -> None:
+        with self._lock:
+            self._metrics["dropped"] += 1
+            if decision.escalated_from is not None:
+                self._metrics["escalated"] += 1
+
+    def _count_unrouted(self, decision: CorrelatorDecision) -> None:
+        with self._lock:
+            self._metrics["unrouted"] += 1
+            if decision.escalated_from is not None:
+                self._metrics["escalated"] += 1
+
+    def _count_delivered(self, decision: CorrelatorDecision) -> None:
+        with self._lock:
+            self._metrics["delivered"] += 1
             if decision.escalated_from is not None:
                 self._metrics["escalated"] += 1
 

@@ -241,8 +241,9 @@ def get_hermes_logs(
     resolved_cursor: HermesLogCursor | None
     if op == "scan":
         # 'scan' always rewinds to the end of the file minus tail_lines
-        # worth of bytes (estimated at 240 chars/line — a generous
-        # number for Hermes records). The poller then reads forward;
+        # worth of bytes (estimated at 480 bytes/line — aligns with the
+        # seek-back heuristic in ``_seek_back_n_lines``, below).
+        # The poller then reads forward;
         # we cap to tail_lines in the response.
         bounded_tail = max(1, min(tail_lines, _MAX_RECORDS_PER_CALL))
         resolved_cursor = _seek_back_n_lines(resolved_path, bounded_tail)
