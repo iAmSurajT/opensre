@@ -135,6 +135,13 @@ prefect-demo:
 test-rca:
 	$(PYTHON) -m tests.e2e.rca.run_rca_test $(FILE)
 
+# Run OpenClaw end-to-end tests against a local OpenClaw instance.
+# Requires the `openclaw` CLI on $PATH; tests skip cleanly if absent so
+# contributors who don't have OpenClaw installed locally can still run
+# `make test-cov`. Excluded from `make test-cov` by the e2e marker.
+test-openclaw:
+	$(PYTHON) -m pytest -m e2e -v tests/e2e/openclaw/
+
 # Run synthetic tests via pytest markers (fixture-based, no live infra required)
 test-synthetic:
 	$(PYTHON) -m pytest -m synthetic -v tests/synthetic/
