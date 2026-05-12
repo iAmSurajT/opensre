@@ -12,6 +12,9 @@ Parent issue: [#1484](https://github.com/Tracer-Cloud/opensre/issues/1484).
 - The `openclaw` CLI installed and on `$PATH`. Tests skip cleanly when
   it's not present, so contributors who haven't installed it can still
   run `make test-cov` without these failing.
+- **Node `22.12+` active in the current shell.** OpenClaw requires
+  it. With `nvm`: run `nvm use` (the repo ships an `.nvmrc` pinning
+  22). Without nvm: `brew install node@22 && brew link --overwrite node@22`.
 - Docker daemon running (for any future container-backed fault
   scenarios — not required for the initial gateway-down scenario).
 
