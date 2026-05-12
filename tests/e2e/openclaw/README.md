@@ -39,7 +39,7 @@ tests/e2e/openclaw/
 ├── infrastructure_sdk/
 │   ├── __init__.py
 │   ├── local.py                    boot/teardown helpers, OpenClawHandle
-│   └── fault_injection.py          gateway-down / hung-tool / wrong-endpoint injectors
+│   └── fault_injection.py          gateway-down / sleeping-tool / wrong-endpoint injectors
 ├── use_case.py                     drives an OpenClaw conversation, captures failure
 ├── orchestrator.py            builds alert, invokes OpenSRE pipeline
 └── test_local.py                   pytest entrypoint, scaffold smoke test
@@ -62,7 +62,7 @@ PRs:
 |---|---|
 | `infrastructure_sdk/local.py` boot/teardown | `issue/1484-openclaw-boot-helpers` |
 | `inject_gateway_down` + first end-to-end test | `issue/1484-openclaw-gateway-down` |
-| `inject_hung_tool_call` | `issue/1484-openclaw-hung-tool-call` |
+| `inject_sleeping_tool_call` | `issue/1484-openclaw-tool-call-timeout` |
 | `inject_wrong_endpoint` | `issue/1484-openclaw-wrong-endpoint` |
 | CI workflow + docs update | `issue/1484-openclaw-ci-and-docs` |
 

@@ -1,8 +1,9 @@
 """Fault injectors for the OpenClaw end-to-end test suite.
 
 Each scenario gets its own injector. They're independent — issues #5
-(hung tool call) and #6 (wrong endpoint) can be implemented in parallel
-after :func:`inject_gateway_down` (this PR / #3) lands.
+(sleeping tool call → timeout) and #6 (wrong endpoint) can be
+implemented in parallel after :func:`inject_gateway_down` (this PR
+/ #3) lands.
 
 Each injector takes a previously booted :class:`OpenClawHandle` and
 mutates the state so the next ``use_case.drive_openclaw_conversation``
@@ -13,6 +14,8 @@ on a handle booted with ``with_gateway=False``).
 
 from __future__ import annotations
 
+import sys
+
 from app.integrations.openclaw import OpenClawConfig
 from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle, teardown_openclaw
 
@@ -22,6 +25,12 @@ from tests.e2e.openclaw.infrastructure_sdk.local import OpenClawHandle, teardown
 # detects that misconfiguration and the wrong-endpoint scenario asserts
 # the hint propagates through to the RCA output.
 _CONTROL_UI_URL = "http://127.0.0.1:18789/"
+
+# Short timeout for the sleeping-tool scenario: long enough that a
+# healthy fixture would respond, short enough that an unresponsive
+# tool fails within seconds. Tests asserting the timeout fires use
+# this same value so the expected error is reproducible.
+_SLEEPING_TOOL_TIMEOUT_SECONDS = 2.0
 
 
 def inject_gateway_down(handle: OpenClawHandle) -> None:
@@ -42,15 +51,27 @@ def inject_gateway_down(handle: OpenClawHandle) -> None:
     handle.extra["fault"] = "gateway_down"
 
 
-def inject_hung_tool_call(handle: OpenClawHandle) -> None:
-    """Install a fixture MCP tool that sleeps past ``OpenClawConfig.timeout_seconds``.
+def inject_sleeping_tool_call(handle: OpenClawHandle) -> None:
+    """Reconfigure the handle so the use_case driver targets a Python
+    stdio MCP fixture whose only tool sleeps instead of returning.
 
-    Used to verify polling / timeout handling and that the OpenSRE agent
-    surfaces a useful "timeout" error rather than blocking forever.
-
-    TODO(#issue-5): implement.
+    Used to verify OpenSRE's tool-call timeout behavior — the
+    orchestrator must surface a useful "tool timed out" error rather
+    than blocking the investigation pipeline indefinitely.
+    :func:`app.integrations.openclaw._call_tool_async` wraps
+    ``session.call_tool(...)`` with :func:`asyncio.wait_for` so
+    ``OpenClawConfig.timeout_seconds`` applies uniformly across all
+    transports (stdio / sse / streamable-http).
     """
-    raise NotImplementedError("inject_hung_tool_call stub — implemented in the hung-tool-call PR")
+    fixture_path = "tests.e2e.openclaw.fixtures.sleeping_mcp_server"
+    handle.extra["openclaw_config"] = OpenClawConfig(
+        mode="stdio",
+        command=sys.executable,
+        args=("-m", fixture_path),
+        timeout_seconds=_SLEEPING_TOOL_TIMEOUT_SECONDS,
+        integration_id="openclaw-e2e-sleeping-tool",
+    )
+    handle.extra["fault"] = "tool_call_timeout"
 
 
 def inject_wrong_endpoint(handle: OpenClawHandle) -> None:

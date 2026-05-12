@@ -5,8 +5,8 @@ an :class:`OpenClawHandle`, builds an :class:`OpenClawConfig` for the
 stdio MCP bridge, attempts to call an OpenClaw MCP tool, and returns a
 context dict shaped for :func:`orchestrator.run_openclaw_investigation`.
 
-Used by every fault scenario test — gateway-down, hung-tool-call, and
-wrong-endpoint all share the same "call a tool, capture what fires"
+Used by every fault scenario test — gateway-down, tool-call-timeout,
+and wrong-endpoint all share the same "call a tool, capture what fires"
 pattern. The fault is set up beforehand by ``fault_injection.inject_*``;
 this function just observes the resulting failure.
 """
@@ -53,10 +53,10 @@ def _build_stdio_config() -> OpenClawConfig:
         mode="stdio",
         command="openclaw",
         args=("mcp", "serve"),
-        # Short timeout so a hung-tool-call test can fail fast in the
-        # follow-up scenario (#5). Gateway-down typically fails within
-        # 1-2s on its own (Connection closed) so this is well above
-        # what the failure path needs.
+        # Short timeout so a tool-call-timeout test can fail fast in
+        # the follow-up scenario (#5). Gateway-down typically fails
+        # within 1-2s on its own (Connection closed) so this is well
+        # above what the failure path needs.
         timeout_seconds=10.0,
         integration_id="openclaw-e2e",
     )

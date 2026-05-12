@@ -41,7 +41,7 @@ def test_openclaw_e2e_suite_scaffold_smoke() -> None:
 
     Confirms the scaffold is in place and the import graph is wired so
     subsequent scenario PRs (#issue-3 gateway-down, #issue-5
-    hung-tool-call, #issue-6 wrong-endpoint) can land without re-doing
+    tool-call-timeout, #issue-6 wrong-endpoint) can land without re-doing
     this plumbing.
 
     Skipped when the ``openclaw`` CLI is absent so contributor laptops
@@ -54,7 +54,7 @@ def test_openclaw_e2e_suite_scaffold_smoke() -> None:
     assert hasattr(local, "teardown_openclaw")
     assert hasattr(local, "OpenClawHandle")
     assert hasattr(fault_injection, "inject_gateway_down")
-    assert hasattr(fault_injection, "inject_hung_tool_call")
+    assert hasattr(fault_injection, "inject_sleeping_tool_call")
     assert hasattr(fault_injection, "inject_wrong_endpoint")
     assert hasattr(use_case, "drive_openclaw_conversation")
     assert hasattr(orchestrator, "run_openclaw_investigation")
