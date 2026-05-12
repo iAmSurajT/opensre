@@ -136,3 +136,43 @@ class TestAgentLifecycle:
             agent.stop()
 
         assert traceback_seen.is_set(), "expected traceback incident to be flushed on stop()"
+
+    def test_stop_waits_for_slow_sink_after_initial_join_timeout(self, tmp_path: Path) -> None:
+        """stop(timeout) must not drop the thread reference while the poller
+        is still inside ``_dispatch`` — :meth:`start` would otherwise clear
+        the stop event and allow two poll loops to share state."""
+        log = tmp_path / "errors.log"
+        log.write_text("", encoding="utf-8")
+        sink_released = threading.Event()
+        sink_invoked = threading.Event()
+        stop_completed = threading.Event()
+
+        def sink(_incident: HermesIncident) -> None:
+            sink_invoked.set()
+            sink_released.wait(timeout=30.0)
+
+        agent = HermesAgent(
+            sink=sink,
+            log_path=log,
+            poll_interval_s=0.01,
+            classifier=IncidentClassifier(warning_burst_threshold=2, warning_burst_window_s=60.0),
+        )
+        agent.start()
+        try:
+            with log.open("a", encoding="utf-8") as fh:
+                fh.write("2026-05-12 00:00:00,000 ERROR root: blocks shutdown\n")
+            assert sink_invoked.wait(timeout=2.0), (
+                "sink not invoked — poller may have missed the line"
+            )
+
+            def stopper() -> None:
+                agent.stop(timeout=0.05)
+                stop_completed.set()
+
+            threading.Thread(target=stopper, daemon=True).start()
+            assert not stop_completed.wait(timeout=0.5)
+            sink_released.set()
+            assert stop_completed.wait(timeout=5.0), "stop() should block until dispatch returns"
+            assert agent.is_running is False
+        finally:
+            sink_released.set()

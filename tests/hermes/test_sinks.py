@@ -283,6 +283,46 @@ class TestPooledBridge:
             bridge_release.set()
             sink.close()
 
+    def test_after_close_does_not_run_bridge_inline_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Closing the sink must not route investigations through the inline
+        path just because the executor handle was cleared — post-shutdown
+        inline calls race in-flight pool workers and block the caller."""
+        dispatcher, calls = _dispatcher(monkeypatch)
+        bridge_calls: list[HermesIncident] = []
+
+        def _bridge(inc: HermesIncident) -> str | None:
+            bridge_calls.append(inc)
+            return "should not run after close"
+
+        config = TelegramSinkConfig(bridge_timeout_s=2.0, bridge_workers=1)
+        sink = TelegramSink(dispatcher, investigation_bridge=_bridge, config=config)
+        sink.close()
+        sink(_incident(severity=IncidentSeverity.HIGH))
+
+        assert bridge_calls == []
+        assert "investigation: skipped (Hermes sink closed" in calls[0]["text"]
+
+
+class TestSinkClosedInline:
+    """``close()`` must suppress bridge calls for the inline path too."""
+
+    def test_after_close_skips_investigation(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        dispatcher, calls = _dispatcher(monkeypatch)
+        bridge_calls: list[HermesIncident] = []
+
+        def _bridge(incident: HermesIncident) -> str | None:
+            bridge_calls.append(incident)
+            return "nope"
+
+        sink = TelegramSink(dispatcher, investigation_bridge=_bridge, config=_INLINE)
+        sink.close()
+        sink(_incident(severity=IncidentSeverity.CRITICAL))
+
+        assert bridge_calls == []
+        assert "investigation: skipped (Hermes sink closed" in calls[0]["text"]
+
 
 class TestDispatcherIntegration:
     def test_duplicate_fingerprint_is_suppressed_by_cooldown(

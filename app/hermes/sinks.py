@@ -151,6 +151,7 @@ class TelegramSink:
         "_investigation_bridge",
         "_config",
         "_bridge_executor",
+        "_bridge_shutdown",
     )
 
     def __init__(
@@ -167,6 +168,7 @@ class TelegramSink:
         # is actually configured AND we're not running inline. This
         # keeps the no-investigation hot path zero-cost.
         self._bridge_executor: ThreadPoolExecutor | None = None
+        self._bridge_shutdown = False
         if investigation_bridge is not None and not self._config.bridge_run_inline:
             self._bridge_executor = ThreadPoolExecutor(
                 max_workers=max(1, self._config.bridge_workers),
@@ -207,6 +209,10 @@ class TelegramSink:
         if executor is not None:
             executor.shutdown(wait=False, cancel_futures=True)
             self._bridge_executor = None
+        # After close, never fall back to `_run_bridge_inline` just because
+        # the executor handle is None — that path would run investigations
+        # on the caller thread after shutdown and fight in-flight pool work.
+        self._bridge_shutdown = True
 
     # ------------------------------------------------------------------
     # Investigation bridge
@@ -217,10 +223,14 @@ class TelegramSink:
             return _InvestigationResult.not_attempted()
         if incident.severity not in _INVESTIGATION_SEVERITIES:
             return _InvestigationResult.not_attempted()
-
-        if self._config.bridge_run_inline or self._bridge_executor is None:
+        if self._bridge_shutdown:
+            return _InvestigationResult.sink_closed()
+        if self._config.bridge_run_inline:
             return self._run_bridge_inline(bridge, incident)
-        return self._run_bridge_in_pool(bridge, incident)
+        if self._bridge_executor is not None:
+            return self._run_bridge_in_pool(bridge, incident)
+        # Pooled mode but executor is gone (e.g. after close): never run inline here.
+        return _InvestigationResult.sink_closed()
 
     def _run_bridge_inline(
         self, bridge: InvestigationBridge, incident: HermesIncident
@@ -326,13 +336,13 @@ class TelegramSink:
 class _InvestigationResult:
     """Internal value type carrying the outcome of a bridge call.
 
-    A :class:`TelegramSink._maybe_investigate` call returns one of five
+    A :class:`TelegramSink._maybe_investigate` call returns one of several
     states (see module docstring). Encoding them as a small value type
     keeps :meth:`TelegramSink._format_message` branchless and makes the
     operator-visible marker for each state easy to audit in tests.
     """
 
-    state: str  # one of: not_attempted | success | empty | failed | timed_out
+    state: str  # not_attempted | success | empty | failed | timed_out | sink_closed
     summary: str | None = None
     timeout_s: float | None = None
 
@@ -356,7 +366,13 @@ class _InvestigationResult:
     def timed_out(cls, timeout_s: float) -> _InvestigationResult:
         return cls(state="timed_out", timeout_s=timeout_s)
 
+    @classmethod
+    def sink_closed(cls) -> _InvestigationResult:
+        return cls(state="sink_closed")
+
     def render(self, severity: IncidentSeverity) -> str:
+        if self.state == "sink_closed":
+            return "investigation: skipped (Hermes sink closed — notification only)"
         if self.state == "success" and self.summary is not None:
             return "investigation summary:\n" + self.summary
         if self.state == "empty":

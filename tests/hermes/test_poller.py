@@ -9,7 +9,6 @@ import pytest
 import app.hermes.poller as hermes_poller
 from app.hermes.classifier import IncidentClassifier
 from app.hermes.incident import LogLevel
-from app.hermes.poller import HermesLogCursor, poll_hermes_logs
 from tests.utils.hermes_logs_helper import hermes_log_fixture
 
 _LINES_BURST = [
@@ -23,28 +22,30 @@ _LINES_BURST = [
 
 class TestCursorTokenRoundTrip:
     def test_token_round_trip_preserves_all_fields(self) -> None:
-        cursor = HermesLogCursor(path="/tmp/x.log", device=42, inode=99, offset=1024)
-        restored = HermesLogCursor.from_token(cursor.to_token())
+        cursor = hermes_poller.HermesLogCursor(path="/tmp/x.log", device=42, inode=99, offset=1024)
+        restored = hermes_poller.HermesLogCursor.from_token(cursor.to_token())
         assert restored == cursor
 
     def test_token_round_trip_supports_paths_with_at_sign(self) -> None:
         # The token uses '@' as a separator; a path containing '@' must
         # still round-trip because the parser greedy-matches the path
         # after the final '@'.
-        cursor = HermesLogCursor(path="/var/log/user@host.log", device=1, inode=2, offset=3)
-        restored = HermesLogCursor.from_token(cursor.to_token())
+        cursor = hermes_poller.HermesLogCursor(
+            path="/var/log/user@host.log", device=1, inode=2, offset=3
+        )
+        restored = hermes_poller.HermesLogCursor.from_token(cursor.to_token())
         assert restored == cursor
 
     def test_malformed_token_raises(self) -> None:
         with pytest.raises(ValueError):
-            HermesLogCursor.from_token("not-a-cursor")
+            hermes_poller.HermesLogCursor.from_token("not-a-cursor")
 
 
 class TestValidateExpectedLogPath:
     def test_accepts_matching_paths(self, tmp_path: Path) -> None:
         log = tmp_path / "errors.log"
         log.write_text("x\n", encoding="utf-8")
-        cursor = HermesLogCursor(path=str(log), device=1, inode=2, offset=3)
+        cursor = hermes_poller.HermesLogCursor(path=str(log), device=1, inode=2, offset=3)
         cursor.validate_expected_log_path(log)
         cursor.validate_expected_log_path(str(log))
 
@@ -53,7 +54,7 @@ class TestValidateExpectedLogPath:
         b = tmp_path / "b.log"
         a.write_text("x\n", encoding="utf-8")
         b.write_text("y\n", encoding="utf-8")
-        cursor = HermesLogCursor(path=str(a), device=0, inode=0, offset=0)
+        cursor = hermes_poller.HermesLogCursor(path=str(a), device=0, inode=0, offset=0)
         with pytest.raises(ValueError, match="does not refer"):
             cursor.validate_expected_log_path(b)
 
@@ -191,7 +192,7 @@ class TestMissingFile:
         opensre hermes watch command relies on this so it can start
         before logs/errors.log appears."""
         ghost = tmp_path / "does-not-exist.log"
-        poll = poll_hermes_logs(ghost, HermesLogCursor.at_start(ghost))
+        poll = hermes_poller.poll_hermes_logs(ghost, hermes_poller.HermesLogCursor.at_start(ghost))
         assert poll.records == ()
         assert poll.cursor.offset == 0
 
@@ -211,12 +212,14 @@ class TestByteBudgetLineBoundary:
         b1 = len(line1.encode("utf-8"))
         monkeypatch.setattr(hermes_poller, "_DEFAULT_MAX_BYTES", b1 + 1)
 
-        first = poll_hermes_logs(p, HermesLogCursor.at_start(p), classifier=IncidentClassifier())
+        first = hermes_poller.poll_hermes_logs(
+            p, hermes_poller.HermesLogCursor.at_start(p), classifier=IncidentClassifier()
+        )
         assert len(first.records) == 1
         assert first.records[0].message.endswith("aaa")
         assert first.cursor.offset == b1
 
-        second = poll_hermes_logs(p, first.cursor, classifier=IncidentClassifier())
+        second = hermes_poller.poll_hermes_logs(p, first.cursor, classifier=IncidentClassifier())
         assert len(second.records) == 1
         assert second.records[0].message.endswith("bbb")
 

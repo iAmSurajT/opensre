@@ -312,7 +312,6 @@ def _read_segment(
     # the parent landed in an earlier poll. The classifier already
     # buffers the open traceback for us across calls.
     prev_level: LogLevel | None = None
-    new_offset = start_offset
 
     with path.open("rb") as handle:
         handle.seek(start_offset)
@@ -333,14 +332,7 @@ def _read_segment(
                 break
             budget -= len(raw)
 
-            try:
-                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-            except Exception:
-                # Defensive — utf-8 with errors="replace" can't raise,
-                # but the broader except keeps the loop alive against
-                # pathological encodings.
-                new_offset = handle.tell()
-                continue
+            line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
 
             record = parse_log_line(line, prev_level=prev_level)
             new_offset = handle.tell()
@@ -367,7 +359,12 @@ def _read_segment(
                 # we actually read (start_offset → line_start). Do not use
                 # (EOF - start_offset) / parsed_count — that mixes the whole
                 # tail with only pre-cap parses and skews the average.
-                file_size = path.stat().st_size
+                # Stat the open handle so a path-level stat() cannot observe a
+                # different inode after rotation while we're still reading.
+                try:
+                    file_size = os.fstat(handle.fileno()).st_size
+                except OSError:
+                    file_size = line_start
                 remaining_bytes = max(0, file_size - line_start)
                 consumed_bytes = max(0, line_start - start_offset)
                 avg_bytes_per_record = consumed_bytes / max(len(records), 1)

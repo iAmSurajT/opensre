@@ -204,11 +204,11 @@ def _serialise_poll(
     ),
     use_cases=[
         "Investigating why the agent itself is failing (gateway crashes, "
-        "auth bypass, polling conflicts)",
+        + "auth bypass, polling conflicts)",
         "Following a Hermes log live during an active incident without "
-        "re-reading the entire file on every call",
+        + "re-reading the entire file on every call",
         "Surfacing structured incidents (error_severity, traceback, "
-        "warning_burst) from a slice of recent log activity",
+        + "warning_burst) from a slice of recent log activity",
     ],
     tags=("safe", "fast", "no-credentials"),
     cost_tier="cheap",

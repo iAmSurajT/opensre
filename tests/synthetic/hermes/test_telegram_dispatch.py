@@ -30,23 +30,23 @@ pytestmark = pytest.mark.synthetic
 # cadence), enough to trigger 3 warning bursts with a threshold of 3.
 _POLLING_CONFLICT_LOG = [
     "2026-05-12 00:40:12,000 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (1/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (1/3), will retry in 10s.",
     "2026-05-12 00:40:34,500 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (2/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (2/3), will retry in 10s.",
     "2026-05-12 00:40:57,000 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (3/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (3/3), will retry in 10s.",
     "2026-05-12 00:41:19,500 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (1/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (1/3), will retry in 10s.",
     "2026-05-12 00:41:42,000 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (2/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (2/3), will retry in 10s.",
     "2026-05-12 00:42:04,500 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (3/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (3/3), will retry in 10s.",
     "2026-05-12 00:42:27,000 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (1/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (1/3), will retry in 10s.",
     "2026-05-12 00:42:49,500 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (2/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (2/3), will retry in 10s.",
     "2026-05-12 00:43:12,000 WARNING gateway.platforms.telegram: "
-    "[Telegram] Telegram polling conflict (3/3), will retry in 10s.",
+    + "[Telegram] Telegram polling conflict (3/3), will retry in 10s.",
 ]
 
 

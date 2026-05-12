@@ -23,7 +23,7 @@ from types import TracebackType
 from typing import Final
 
 from app.hermes.classifier import IncidentClassifier
-from app.hermes.incident import HermesIncident, LogLevel, LogRecord
+from app.hermes.incident import HermesIncident, LogLevel
 from app.hermes.parser import parse_log_line
 from app.hermes.tailer import DEFAULT_POLL_INTERVAL_S, FileTailer
 
@@ -78,6 +78,9 @@ class HermesAgent:
         )
         self._thread: threading.Thread | None = None
         self._prev_level: LogLevel | None = None
+        # Serializes parser + _prev_level + classifier.observe between the
+        # polling thread and synchronous :meth:`process` calls.
+        self._pipeline_lock = threading.Lock()
 
     @property
     def log_path(self) -> Path:
@@ -100,15 +103,31 @@ class HermesAgent:
         self._thread.start()
 
     def stop(self, *, timeout: float = _THREAD_JOIN_TIMEOUT_S) -> None:
-        """Signal the polling thread and wait up to ``timeout`` seconds."""
+        """Signal the polling thread and wait until it has exited.
+
+        The poller is joined for up to ``timeout`` seconds first so slow
+        shutdown paths can be noticed in logs; if it is still alive after
+        that, we block without a further timeout until the thread finishes.
+        Only then may :meth:`start` clear the stop event safely — otherwise
+        a prior poller could resume after a "stopped" agent appeared idle.
+        """
         self._stop_event.set()
         thread = self._thread
         if thread is not None:
             thread.join(timeout=timeout)
+            if thread.is_alive():
+                logger.warning(
+                    "hermes-agent: polling thread still running after %.1fs; "
+                    "waiting for clean shutdown",
+                    timeout,
+                )
+                thread.join()
         self._thread = None
         # Surface any tracebacks that were buffered by the classifier so
         # an incident never gets stuck in memory after shutdown.
-        for incident in self._classifier.flush():
+        with self._pipeline_lock:
+            pending = self._classifier.flush()
+        for incident in pending:
             self._dispatch(incident)
 
     def process(self, lines: Iterable[str]) -> list[HermesIncident]:
@@ -119,11 +138,13 @@ class HermesAgent:
         """
         emitted: list[HermesIncident] = []
         for line in lines:
-            record = parse_log_line(line, prev_level=self._prev_level)
-            if record is None:
-                continue
-            self._prev_level = record.level if not record.is_continuation else self._prev_level
-            for incident in self._classifier.observe(record):
+            with self._pipeline_lock:
+                record = parse_log_line(line, prev_level=self._prev_level)
+                if record is None:
+                    continue
+                self._prev_level = record.level if not record.is_continuation else self._prev_level
+                incidents = list(self._classifier.observe(record))
+            for incident in incidents:
                 emitted.append(incident)
                 self._dispatch(incident)
         return emitted
@@ -145,22 +166,21 @@ class HermesAgent:
             for line in self._tailer:
                 if self._stop_event.is_set():
                     break
-                record = parse_log_line(line, prev_level=self._prev_level)
-                if record is None:
-                    continue
-                if not record.is_continuation:
-                    self._prev_level = record.level
-                self._handle_record(record)
+                with self._pipeline_lock:
+                    record = parse_log_line(line, prev_level=self._prev_level)
+                    if record is None:
+                        continue
+                    if not record.is_continuation:
+                        self._prev_level = record.level
+                    incidents = list(self._classifier.observe(record))
+                for incident in incidents:
+                    self._dispatch(incident)
         except Exception:
             # The polling thread is the agent's only worker; if we let an
             # exception propagate we lose all future incidents silently.
             # Log it loudly but keep the process alive — the operator can
             # restart the agent after fixing the underlying cause.
             logger.exception("hermes-agent polling thread crashed")
-
-    def _handle_record(self, record: LogRecord) -> None:
-        for incident in self._classifier.observe(record):
-            self._dispatch(incident)
 
     def _dispatch(self, incident: HermesIncident) -> None:
         try:

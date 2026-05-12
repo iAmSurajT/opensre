@@ -15,7 +15,6 @@ to enable the RCA bridge for ``HIGH``/``CRITICAL`` incidents.
 
 from __future__ import annotations
 
-import logging
 import os
 import signal
 import threading
@@ -30,8 +29,6 @@ from app.hermes.correlator import IncidentCorrelator, RouteDestination
 from app.hermes.investigation import run_incident_investigation
 from app.hermes.sinks import TelegramSink
 from app.watch_dog.alarms import AlarmDispatcher, load_credentials_from_env
-
-logger = logging.getLogger(__name__)
 
 
 @click.group(name="hermes")

@@ -39,12 +39,6 @@ from typing import Final
 
 from app.hermes.incident import HermesIncident, IncidentSeverity, LogLevel, LogRecord
 
-__all__ = [
-    "PatternRule",
-    "RepeatRule",
-    "default_pattern_rules",
-]
-
 
 @dataclass(frozen=True, slots=True)
 class PatternRule:
@@ -270,4 +264,9 @@ def evaluate_all(
     return incidents
 
 
-__all__.append("evaluate_all")
+__all__ = [
+    "PatternRule",
+    "RepeatRule",
+    "default_pattern_rules",
+    "evaluate_all",
+]
