@@ -97,6 +97,11 @@ dev = [
     "huggingface_hub>=0.26.0",
     "datasets>=3.0.0",
 ]
+release = [
+    "build>=1.2.0",
+    "twine>=6.0.0",
+    "pyinstaller>=6.3.0",
+]
 opensre-hub = [
     "huggingface_hub>=0.26.0",
     "datasets>=3.0.0",
