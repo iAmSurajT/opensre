@@ -689,7 +689,7 @@ class OpenAILLMClient:
                 ) from err
             except OpenAIBadRequestError as err:
                 _msg = (err.message or "").lower()
-                if "model" in _msg and "invalid" in _msg:
+                if "model identifier" in _msg:
                     raise RuntimeError(
                         f"{self._provider_label} model '{self._model}' was not found. "
                         "Check your configured model name or endpoint."
@@ -779,7 +779,7 @@ class OpenAILLMClient:
                 ) from err
             except OpenAIBadRequestError as err:
                 _msg = (err.message or "").lower()
-                if "model" in _msg and "invalid" in _msg:
+                if "model identifier" in _msg:
                     raise RuntimeError(
                         f"{self._provider_label} model '{self._model}' was not found. "
                         "Check your configured model name or endpoint."
