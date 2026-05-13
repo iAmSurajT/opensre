@@ -157,32 +157,4 @@ Contributor-facing regression coverage for this path lives in:
 
 ## End-to-end tests
 
-The suite at `tests/e2e/openclaw/` boots a local Gateway, injects a fault, and asserts OpenSRE identifies the failure mode.
-
-Prerequisites:
-
-- `openclaw` CLI on `$PATH` (tests skip when absent).
-- Node `22.12+` active in the current shell.
-- Optional: `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` for the full-RCA sub-tests; without one, only the use-case sub-tests run.
-
-Run the suite:
-
-```bash
-make test-openclaw
-```
-
-Run one scenario:
-
-```bash
-uv run python -m pytest -m e2e -v tests/e2e/openclaw/test_gateway_down.py
-```
-
-Scenarios:
-
-- `test_gateway_down.py` — bridge runs, Gateway doesn't; RCA must recommend `openclaw gateway run`.
-- `test_wrong_endpoint.py` — config points at the Control UI port (`18789`); RCA must recommend `stdio`.
-- `test_tool_call_timeout.py` — a fixture MCP tool sleeps past `OpenClawConfig.timeout_seconds`; RCA must surface "timeout".
-
-CI: `.github/workflows/e2e-openclaw.yml` auto-runs on PRs and pushes to `main` that touch OpenClaw-related paths, plus a daily 06:00 UTC schedule and a manual dispatch button. Add `ANTHROPIC_API_KEY` to repo secrets to enable the full-RCA sub-tests.
-
-For the deeper reference (layout, fault-injection contract, how to add a new scenario) see [`tests/e2e/openclaw/README.md`](https://github.com/Tracer-Cloud/opensre/tree/main/tests/e2e/openclaw/README.md).
+The OpenClaw e2e suite lives at [`tests/e2e/openclaw/`](https://github.com/Tracer-Cloud/opensre/tree/main/tests/e2e/openclaw). See its [README](https://github.com/Tracer-Cloud/opensre/tree/main/tests/e2e/openclaw/README.md) for prerequisites, how to run the suite, scenario layout, and CI behavior.

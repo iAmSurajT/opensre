@@ -103,6 +103,5 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
     # "## Recommended Actions" section, so we check it directly.
     assert ("openclaw gateway" in summary) or ("openclaw mcp" in summary), result
 
-    # validity_score logged but not gated — see tests/e2e/openclaw/README.md
-    # "Note on validity_score" for the deviation from #1484 AC.
+    # Logged, not asserted: LLM-variance scores (~0.4–0.7) would flake a strict gate.
     print(f"validity_score={result.get('validity_score', 0)} (logged, not asserted)")

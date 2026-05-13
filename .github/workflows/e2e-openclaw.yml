@@ -54,42 +54,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  openclaw-quality:
-    name: openclaw quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            pyproject.toml
-            uv.lock
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
-      - name: Install dependencies
-        run: uv sync --frozen --extra dev
-
-      - name: Lint
-        run: uv run python -m ruff check app/ tests/
-
-      - name: Format check
-        run: uv run python -m ruff format --check app/ tests/
-
-      - name: Typecheck
-        run: uv run python -m mypy app/
-
+  # Quality gates (lint / format-check / mypy) are run by the main
+  # ``ci.yml`` workflow for every PR. We don't duplicate them here —
+  # this workflow's sole job is the OpenClaw e2e suite. If you reach
+  # this workflow, your PR has already cleared the quality gates.
   openclaw-test:
     name: openclaw test
-    needs: [openclaw-quality]
     runs-on: ubuntu-latest
     timeout-minutes: 25
 

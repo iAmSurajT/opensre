@@ -88,6 +88,5 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     # includes the report's "## Recommended Actions" section.
     assert ("control ui" in summary) or ("stdio" in summary), result
 
-    # validity_score logged but not gated — see tests/e2e/openclaw/README.md
-    # "Note on validity_score" for the deviation from #1484 AC.
+    # Logged, not asserted: LLM-variance scores (~0.4–0.7) would flake a strict gate.
     print(f"validity_score={result.get('validity_score', 0)} (logged, not asserted)")
