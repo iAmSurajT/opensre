@@ -179,7 +179,7 @@ class LLMClient:
                     "Check your configured model name and try again."
                 ) from err
             except AnthropicBadRequestError as err:
-                raise RuntimeError(f"Anthropic request rejected (HTTP 400): {err.message}") from err
+                raise RuntimeError(_format_anthropic_bad_request(err)) from err
             except GuardrailBlockedError:
                 raise
             except Exception as err:
@@ -227,7 +227,7 @@ class LLMClient:
                     "Check your configured model name and try again."
                 ) from err
             except AnthropicBadRequestError as err:
-                raise RuntimeError(f"Anthropic request rejected (HTTP 400): {err.message}") from err
+                raise RuntimeError(_format_anthropic_bad_request(err)) from err
             except GuardrailBlockedError:
                 raise
             except Exception as err:
@@ -504,6 +504,17 @@ class BedrockLLMClient:
         the yield-once fallback satisfies the protocol contract.
         """
         yield self.invoke(prompt_or_messages).content
+
+
+def _format_anthropic_bad_request(err: AnthropicBadRequestError) -> str:
+    """Return a user-facing message for Anthropic HTTP 400 errors."""
+    body = getattr(err, "body", None)
+    if isinstance(body, dict):
+        error_obj = body.get("error", {})
+        api_msg = error_obj.get("message", "") if isinstance(error_obj, dict) else ""
+        if "usage limit" in api_msg.lower():
+            return f"Anthropic API usage limit reached. {api_msg}"
+    return f"Anthropic request rejected (HTTP 400): {err.message}"
 
 
 def _format_anthropic_retry_error(err: Exception) -> str:
