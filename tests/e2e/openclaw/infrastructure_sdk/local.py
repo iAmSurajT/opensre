@@ -19,7 +19,6 @@ import shutil
 import signal
 import subprocess
 import time
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -69,7 +68,12 @@ class OpenClawHandle:
     extra: dict[str, object] = field(default_factory=dict)
 
 
-def _openclaw_cli_available() -> bool:
+def openclaw_cli_available() -> bool:
+    """True when the ``openclaw`` CLI is on ``$PATH``.
+
+    Public helper so scenario test files can ``skipif`` on a single
+    canonical check instead of redefining the function locally.
+    """
     return shutil.which("openclaw") is not None
 
 
@@ -77,7 +81,7 @@ def _node_version_ok() -> bool:
     """OpenClaw needs Node 22.12+; older Node prints the requirement to
     stderr and exits non-zero, so we can detect by trying ``--version``.
     """
-    if not _openclaw_cli_available():
+    if not openclaw_cli_available():
         return False
     try:
         result = subprocess.run(
@@ -103,7 +107,7 @@ def _skip_if_openclaw_unavailable() -> None:
     - CLI installed but Node version too old → ``openclaw --version``
       exits non-zero with the Node-version error
     """
-    if not _openclaw_cli_available():
+    if not openclaw_cli_available():
         pytest.skip("openclaw CLI not installed — see tests/e2e/openclaw/README.md")
     if not _node_version_ok():
         pytest.skip(
@@ -253,17 +257,3 @@ def teardown_openclaw(handle: OpenClawHandle) -> None:
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         with contextlib.suppress(subprocess.TimeoutExpired):
             process.wait(timeout=_TEARDOWN_GRACE_S)
-
-
-@pytest.fixture
-def openclaw_handle() -> Iterator[OpenClawHandle]:
-    """Function-scoped pytest fixture that boots + tears down a local Gateway.
-
-    Yields the :class:`OpenClawHandle`; the teardown step runs even if
-    the test body raises.
-    """
-    handle = boot_openclaw()
-    try:
-        yield handle
-    finally:
-        teardown_openclaw(handle)

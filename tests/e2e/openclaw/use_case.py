@@ -90,7 +90,7 @@ def drive_openclaw_conversation(handle: OpenClawHandle) -> dict[str, Any]:
           "gateway_url": "ws://127.0.0.1:19001" | None,
           "last_error": "<one-line summary>",
           "error_detail": "<full describe_openclaw_error output>",
-          "failure_mode": "gateway_down" | "timeout" | "wrong_endpoint" | "unknown",
+          "failure_mode": "gateway_down" | "tool_call_timeout" | "wrong_endpoint" | "unknown",
         }
 
     On the happy path (no fault injected, Gateway healthy) the dict has
@@ -124,7 +124,7 @@ def drive_openclaw_conversation(handle: OpenClawHandle) -> dict[str, Any]:
 
     try:
         result = call_openclaw_tool(config, _PROBE_TOOL, {})
-    except BaseException as err:  # noqa: BLE001 — capture everything for the orchestrator
+    except Exception as err:  # noqa: BLE001 — capture operational failures; KeyboardInterrupt/SystemExit propagate
         base_context["last_error"] = (
             str(err).splitlines()[0][:200] if str(err) else type(err).__name__
         )

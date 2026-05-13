@@ -25,7 +25,7 @@ on:
       - "app/integrations/openclaw.py"
       - "app/tools/OpenClawMCPTool/**"
       - "tests/e2e/openclaw/**"
-      - "tests/fixtures/openclaw_e2e_alert.json"
+      - "tests/utils/alert_factory/**"
       - ".github/workflows/e2e-openclaw.yml"
       - "docs/openclaw.mdx"
       - ".nvmrc"
@@ -35,7 +35,7 @@ on:
       - "app/integrations/openclaw.py"
       - "app/tools/OpenClawMCPTool/**"
       - "tests/e2e/openclaw/**"
-      - "tests/fixtures/openclaw_e2e_alert.json"
+      - "tests/utils/alert_factory/**"
       - ".github/workflows/e2e-openclaw.yml"
       - "docs/openclaw.mdx"
       - ".nvmrc"
@@ -58,7 +58,6 @@ jobs:
     name: openclaw quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v5
@@ -93,7 +92,6 @@ jobs:
     needs: [openclaw-quality]
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    continue-on-error: true
 
     env:
       # OpenClaw e2e exercises only the OpenClaw integration — the
@@ -204,10 +202,11 @@ jobs:
           retention-days: 7
 
       - name: Summary
-        # Always runs, regardless of earlier step outcomes. The job-level
-        # ``continue-on-error: true`` plus the per-step degradations above
-        # mean the workflow never crashes on a missing dep — but we still
-        # want one place where a reviewer sees what actually happened.
+        # Always runs, regardless of earlier step outcomes. The probe
+        # steps above downgrade a missing-CLI / wrong-Node environment
+        # to "tests skipped" rather than failing the workflow, so this
+        # summary is the one place a reviewer sees why fewer tests ran
+        # than expected. Real pytest failures still fail the job.
         if: always()
         run: |
           echo "### OpenClaw E2E run summary"

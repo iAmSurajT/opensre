@@ -16,12 +16,15 @@ sub-test (it skips just to keep the suite uniform across scenarios).
 from __future__ import annotations
 
 import os
-import shutil
 
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.fault_injection import inject_wrong_endpoint
-from tests.e2e.openclaw.infrastructure_sdk.local import boot_openclaw, teardown_openclaw
+from tests.e2e.openclaw.infrastructure_sdk.local import (
+    boot_openclaw,
+    openclaw_cli_available,
+    teardown_openclaw,
+)
 from tests.e2e.openclaw.use_case import drive_openclaw_conversation
 
 pytestmark = pytest.mark.e2e
@@ -37,12 +40,8 @@ def _llm_credentials_present() -> bool:
     )
 
 
-def _openclaw_cli_available() -> bool:
-    return shutil.which("openclaw") is not None
-
-
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 def test_wrong_endpoint_use_case_captures_validation_hint() -> None:
@@ -73,7 +72,7 @@ def test_wrong_endpoint_use_case_captures_validation_hint() -> None:
 
 
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 @pytest.mark.skipif(
@@ -112,3 +111,6 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     remediation_text = str(result.get("remediation_steps", result.get("remediation", ""))).lower()
     combined = summary_text + " " + remediation_text
     assert ("control ui" in combined) or ("stdio" in combined), result
+
+    validity_score = result.get("validity_score", 0)
+    assert validity_score > 0.7, f"validity_score {validity_score} below 0.7 bar: {result}"

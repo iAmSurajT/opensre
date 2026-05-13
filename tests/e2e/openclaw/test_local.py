@@ -12,13 +12,12 @@ wired up correctly.
 
 from __future__ import annotations
 
-import shutil
-
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.local import (
     OpenClawHandle,
     boot_openclaw,
+    openclaw_cli_available,
     teardown_openclaw,
 )
 
@@ -28,12 +27,8 @@ from tests.e2e.openclaw.infrastructure_sdk.local import (
 pytestmark = pytest.mark.e2e
 
 
-def _openclaw_cli_available() -> bool:
-    return shutil.which("openclaw") is not None
-
-
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 def test_openclaw_e2e_suite_scaffold_smoke() -> None:
@@ -68,7 +63,7 @@ def test_boot_openclaw_skips_when_with_gateway_false() -> None:
     This sub-test does NOT require the openclaw CLI to be installed
     because no process is spawned — only the early skip-checks run.
     """
-    if not _openclaw_cli_available():
+    if not openclaw_cli_available():
         pytest.skip("openclaw CLI not installed — see tests/e2e/openclaw/README.md")
     handle = boot_openclaw(with_gateway=False)
     assert isinstance(handle, OpenClawHandle)
@@ -79,7 +74,7 @@ def test_boot_openclaw_skips_when_with_gateway_false() -> None:
 
 
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 def test_boot_openclaw_starts_gateway_and_teardown_kills_it() -> None:

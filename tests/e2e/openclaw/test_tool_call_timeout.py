@@ -15,12 +15,15 @@ The sleeping fixture exercises this wrapper end-to-end.
 from __future__ import annotations
 
 import os
-import shutil
 
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.fault_injection import inject_sleeping_tool_call
-from tests.e2e.openclaw.infrastructure_sdk.local import boot_openclaw, teardown_openclaw
+from tests.e2e.openclaw.infrastructure_sdk.local import (
+    boot_openclaw,
+    openclaw_cli_available,
+    teardown_openclaw,
+)
 
 pytestmark = pytest.mark.e2e
 
@@ -31,12 +34,8 @@ def _llm_credentials_present() -> bool:
     )
 
 
-def _openclaw_cli_available() -> bool:
-    return shutil.which("openclaw") is not None
-
-
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 def test_tool_call_timeout_use_case_surfaces_timeout() -> None:
@@ -59,7 +58,7 @@ def test_tool_call_timeout_use_case_surfaces_timeout() -> None:
 
 
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 @pytest.mark.skipif(
@@ -92,3 +91,6 @@ def test_tool_call_timeout_investigation_identifies_timeout() -> None:
     ).lower()
     assert "openclaw" in summary_text, result
     assert "timeout" in summary_text or "timed out" in summary_text, result
+
+    validity_score = result.get("validity_score", 0)
+    assert validity_score > 0.7, f"validity_score {validity_score} below 0.7 bar: {result}"

@@ -43,31 +43,21 @@ tests/e2e/openclaw/
 │   ├── __init__.py
 │   ├── local.py                    boot/teardown helpers, OpenClawHandle
 │   └── fault_injection.py          gateway-down / sleeping-tool / wrong-endpoint injectors
+├── fixtures/
+│   └── sleeping_mcp_server.py      stdio MCP fixture used by the timeout scenario
 ├── use_case.py                     drives an OpenClaw conversation, captures failure
-├── orchestrator.py            builds alert, invokes OpenSRE pipeline
-└── test_local.py                   pytest entrypoint, scaffold smoke test
+├── orchestrator.py                 builds alert, invokes OpenSRE pipeline
+├── test_local.py                   scaffold + boot/teardown smoke
+├── test_gateway_down.py            gateway-down scenario
+├── test_wrong_endpoint.py          wrong-endpoint scenario
+└── test_tool_call_timeout.py       tool-call timeout scenario
 ```
 
-Each fault scenario lands in its own `test_<scenario>.py` next to
-`test_local.py` so the scenarios are independently mergeable. See the
-sub-issues filed against #1484 for the concrete acceptance criteria of
-each scenario.
-
-## Status (scaffold PR)
-
-This PR establishes the directory + import graph + Makefile target +
-placeholder smoke test only. The infrastructure helpers, fault
-injectors, use case driver, and orchestrator are all stubs that raise
-`NotImplementedError`. They get filled in by their respective scenario
-PRs:
-
-| Component | Implemented in |
-|---|---|
-| `infrastructure_sdk/local.py` boot/teardown | `issue/1484-openclaw-boot-helpers` |
-| `inject_gateway_down` + first end-to-end test | `issue/1484-openclaw-gateway-down` |
-| `inject_sleeping_tool_call` | `issue/1484-openclaw-tool-call-timeout` |
-| `inject_wrong_endpoint` | `issue/1484-openclaw-wrong-endpoint` |
-| CI workflow + docs update | `issue/1484-openclaw-ci-and-docs` |
+Each fault scenario lives in its own `test_<scenario>.py` next to
+`test_local.py`. Every scenario has two sub-tests: a fast use-case
+assertion that doesn't need an LLM, and a full RCA assertion that
+calls the investigation pipeline (gated on
+`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`).
 
 ## Conventions followed
 

@@ -20,12 +20,15 @@ and still see the use-case smoke pass.
 from __future__ import annotations
 
 import os
-import shutil
 
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.fault_injection import inject_gateway_down
-from tests.e2e.openclaw.infrastructure_sdk.local import boot_openclaw, teardown_openclaw
+from tests.e2e.openclaw.infrastructure_sdk.local import (
+    boot_openclaw,
+    openclaw_cli_available,
+    teardown_openclaw,
+)
 from tests.e2e.openclaw.use_case import drive_openclaw_conversation
 
 pytestmark = pytest.mark.e2e
@@ -41,12 +44,8 @@ def _llm_credentials_present() -> bool:
     )
 
 
-def _openclaw_cli_available() -> bool:
-    return shutil.which("openclaw") is not None
-
-
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 def test_gateway_down_use_case_captures_connection_failure() -> None:
@@ -81,7 +80,7 @@ def test_gateway_down_use_case_captures_connection_failure() -> None:
 
 
 @pytest.mark.skipif(
-    not _openclaw_cli_available(),
+    not openclaw_cli_available(),
     reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
 )
 @pytest.mark.skipif(
@@ -127,3 +126,9 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
     remediation_text = str(result.get("remediation_steps", result.get("remediation", ""))).lower()
     combined = summary_text + " " + remediation_text
     assert ("openclaw gateway" in combined) or ("openclaw mcp" in combined), result
+
+    # AC: validity_score must clear the 0.7 quality bar — the alert
+    # annotations give the agent enough grounding that low scores
+    # indicate the diagnosis isn't anchored to the captured failure.
+    validity_score = result.get("validity_score", 0)
+    assert validity_score > 0.7, f"validity_score {validity_score} below 0.7 bar: {result}"
