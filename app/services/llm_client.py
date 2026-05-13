@@ -511,7 +511,8 @@ def _format_anthropic_bad_request(err: AnthropicBadRequestError) -> str:
     body = getattr(err, "body", None)
     if isinstance(body, dict):
         error_obj = body.get("error", {})
-        api_msg = error_obj.get("message", "") if isinstance(error_obj, dict) else ""
+        api_msg = error_obj.get("message") if isinstance(error_obj, dict) else None
+        api_msg = api_msg if isinstance(api_msg, str) else ""
         if "usage limit" in api_msg.lower():
             return f"Anthropic API usage limit reached. {api_msg}"
     return f"Anthropic request rejected (HTTP 400): {err.message}"
