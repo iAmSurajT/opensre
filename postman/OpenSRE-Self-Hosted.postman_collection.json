@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "OpenSRE Self-Hosted API",
+    "description": "Collection for testing the self-hosted OpenSRE API server (no LangGraph Platform license required).\n\nBase URL: http://localhost:8000",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "thread_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Quick Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/ok",
+            "description": "Returns {ok: true} if the server is running."
+          }
+        },
+        {
+          "name": "Detailed Health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "description": "Returns detailed health: graph_loaded, llm_configured, version, env."
+          }
+        }
+      ]
+    },
+    {
+      "name": "One-Shot Investigation",
+      "item": [
+        {
+          "name": "Investigate - Bid Ask Decorator Kafka Errors",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/investigate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {\n    \"source\": \"datadog\",\n    \"type\": \"log_alert\",\n    \"monitor\": {\n      \"id\": 18675899,\n      \"name\": \"Warn: Bid Ask Decorator Errors\",\n      \"message\": \"We are getting errors in our logs. Please check out what is going on and report your findings to Slack.\\n\\nRunbook: https://stockx-services.atlassian.net/wiki/spaces/XTSELL/pages/2804548560/Kafka+Broker+Related+Error\"\n    },\n    \"alert\": {\n      \"query\": \"service:bid-ask-decorator* status:error env:production -@metadata.error:*ValidationError*\",\n      \"threshold\": 100,\n      \"timeframe\": \"15m\",\n      \"matched_count\": \">100\",\n      \"environment\": \"production\",\n      \"service\": \"bid-ask-decorator\",\n      \"status\": \"error\"\n    },\n    \"event\": {\n      \"id\": \"8629084472528107963\",\n      \"timestamp\": \"2026-05-13T06:33:34Z\",\n      \"tags\": [\"service:bid-ask-decorator\", \"env:production\"]\n    },\n    \"samples\": [\n      {\n        \"timestamp\": \"2026-05-13T06:33:34Z\",\n        \"host\": \"i-0ceb19cab98e946f9\",\n        \"message\": \"The group is rebalancing, so a rejoin is needed\"\n      },\n      {\n        \"timestamp\": \"2026-05-13T06:33:34Z\",\n        \"host\": \"i-027698350104e1f11\",\n        \"message\": \"The group is rebalancing, so a rejoin is needed\"\n      }\n    ],\n    \"links\": {\n      \"monitor\": \"https://app.datadoghq.com/monitors/18675899\",\n      \"runbook\": \"https://stockx-services.atlassian.net/wiki/spaces/XTSELL/pages/2804548560/Kafka+Broker+Related+Error\"\n    },\n    \"notifications\": [\"@slack-xt-cs-alerts\", \"@servicenow\", \"@oncall-xt-customer-service\"]\n  },\n  \"mode\": \"investigation\"\n}"
+            },
+            "description": "One-shot investigation: creates thread + runs investigation + returns result in a single call.\n\nThis is the simplest way to trigger an investigation."
+          }
+        },
+        {
+          "name": "Investigate - Generic Alert Template",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/investigate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {\n    \"source\": \"datadog\",\n    \"type\": \"log_alert\",\n    \"monitor\": {\n      \"id\": 0,\n      \"name\": \"REPLACE: Alert Name\"\n    },\n    \"alert\": {\n      \"query\": \"service:YOUR_SERVICE status:error env:production\",\n      \"threshold\": 100,\n      \"timeframe\": \"15m\",\n      \"environment\": \"production\",\n      \"service\": \"YOUR_SERVICE\",\n      \"status\": \"error\"\n    },\n    \"samples\": [\n      {\n        \"timestamp\": \"2026-05-13T00:00:00Z\",\n        \"host\": \"i-xxxxx\",\n        \"message\": \"REPLACE: Error message from logs\"\n      }\n    ]\n  },\n  \"mode\": \"investigation\"\n}"
+            },
+            "description": "Template for investigating any Datadog alert. Replace the placeholder values with your actual alert data."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Thread-Based Investigation",
+      "item": [
+        {
+          "name": "1. Create Thread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('thread_id', jsonData.thread_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/threads",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Creates a new investigation thread. The thread_id is automatically saved to the collection variable for use in subsequent requests."
+          }
+        },
+        {
+          "name": "2. Run Investigation",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/threads/{{thread_id}}/runs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {\n    \"source\": \"datadog\",\n    \"type\": \"log_alert\",\n    \"monitor\": {\n      \"id\": 18675899,\n      \"name\": \"Warn: Bid Ask Decorator Errors\"\n    },\n    \"alert\": {\n      \"query\": \"service:bid-ask-decorator* status:error env:production\",\n      \"threshold\": 100,\n      \"timeframe\": \"15m\",\n      \"environment\": \"production\",\n      \"service\": \"bid-ask-decorator\",\n      \"status\": \"error\"\n    },\n    \"samples\": [\n      {\n        \"timestamp\": \"2026-05-13T06:33:34Z\",\n        \"host\": \"i-0ceb19cab98e946f9\",\n        \"message\": \"The group is rebalancing, so a rejoin is needed\"\n      }\n    ]\n  },\n  \"mode\": \"investigation\"\n}"
+            },
+            "description": "Triggers an investigation on the created thread. Returns the investigation result with root cause, evidence, and remediation steps."
+          }
+        },
+        {
+          "name": "3. Get Thread State",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/threads/{{thread_id}}/state",
+            "description": "Retrieves the full state of a thread including all runs and the latest result."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Mode",
+      "item": [
+        {
+          "name": "Chat - Ask About an Incident",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/investigate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {\n    \"messages\": [\n      {\n        \"role\": \"user\",\n        \"content\": \"What could cause Kafka consumer group rebalancing errors in a Node.js service running on EC2?\"\n      }\n    ]\n  },\n  \"mode\": \"chat\"\n}"
+            },
+            "description": "Chat mode: ask questions about incidents or infrastructure without triggering a full investigation."
+          }
+        }
+      ]
+    }
+  ]
+}
