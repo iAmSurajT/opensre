@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.local import (
+    OPENCLAW_CLI_SKIP_REASON,
     OpenClawHandle,
     boot_openclaw,
     openclaw_cli_available,
@@ -27,10 +28,7 @@ from tests.e2e.openclaw.infrastructure_sdk.local import (
 pytestmark = pytest.mark.e2e
 
 
-@pytest.mark.skipif(
-    not openclaw_cli_available(),
-    reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
-)
+@pytest.mark.skipif(not openclaw_cli_available(), reason=OPENCLAW_CLI_SKIP_REASON)
 def test_openclaw_e2e_suite_scaffold_smoke() -> None:
     """Smoke test that the e2e package imports without error.
 
@@ -64,7 +62,7 @@ def test_boot_openclaw_skips_when_with_gateway_false() -> None:
     because no process is spawned — only the early skip-checks run.
     """
     if not openclaw_cli_available():
-        pytest.skip("openclaw CLI not installed — see tests/e2e/openclaw/README.md")
+        pytest.skip(OPENCLAW_CLI_SKIP_REASON)
     handle = boot_openclaw(with_gateway=False)
     assert isinstance(handle, OpenClawHandle)
     assert handle.gateway_pid is None
@@ -73,10 +71,7 @@ def test_boot_openclaw_skips_when_with_gateway_false() -> None:
     teardown_openclaw(handle)
 
 
-@pytest.mark.skipif(
-    not openclaw_cli_available(),
-    reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
-)
+@pytest.mark.skipif(not openclaw_cli_available(), reason=OPENCLAW_CLI_SKIP_REASON)
 def test_boot_openclaw_starts_gateway_and_teardown_kills_it() -> None:
     """End-to-end boot + healthcheck + teardown smoke.
 

@@ -19,13 +19,14 @@ and still see the use-case smoke pass.
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.fault_injection import inject_gateway_down
 from tests.e2e.openclaw.infrastructure_sdk.local import (
+    LLM_CREDENTIAL_SKIP_REASON,
+    OPENCLAW_CLI_SKIP_REASON,
     boot_openclaw,
+    llm_credentials_present,
     openclaw_cli_available,
     teardown_openclaw,
 )
@@ -34,20 +35,7 @@ from tests.e2e.openclaw.use_case import drive_openclaw_conversation
 pytestmark = pytest.mark.e2e
 
 
-def _llm_credentials_present() -> bool:
-    """RCA needs a live LLM call. We accept any of OpenSRE's supported
-    keys so contributors with Anthropic / OpenAI / Gemini configured
-    can all run the full pipeline.
-    """
-    return any(
-        os.environ.get(var) for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
-    )
-
-
-@pytest.mark.skipif(
-    not openclaw_cli_available(),
-    reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
-)
+@pytest.mark.skipif(not openclaw_cli_available(), reason=OPENCLAW_CLI_SKIP_REASON)
 def test_gateway_down_use_case_captures_connection_failure() -> None:
     """Without a running Gateway, the MCP bridge cannot reach one and
     ``conversations_list`` fails.
@@ -79,17 +67,8 @@ def test_gateway_down_use_case_captures_connection_failure() -> None:
     ), context
 
 
-@pytest.mark.skipif(
-    not openclaw_cli_available(),
-    reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
-)
-@pytest.mark.skipif(
-    not _llm_credentials_present(),
-    reason=(
-        "No LLM credential set (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) "
-        "— full RCA invocation skipped."
-    ),
-)
+@pytest.mark.skipif(not openclaw_cli_available(), reason=OPENCLAW_CLI_SKIP_REASON)
+@pytest.mark.skipif(not llm_credentials_present(), reason=LLM_CREDENTIAL_SKIP_REASON)
 def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> None:
     """Run the full OpenSRE investigation against the captured failure
     and assert the RCA correctly names OpenClaw + the gateway failure
@@ -98,7 +77,11 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
     Real LLM call inside — count this as an integration cost when
     running locally. Skipped when no LLM credential is configured.
     """
-    from tests.e2e.openclaw.orchestrator import run_openclaw_investigation
+    from tests.e2e.openclaw.orchestrator import (
+        remediation_text,
+        run_openclaw_investigation,
+        summarize_result,
+    )
 
     handle = boot_openclaw(with_gateway=False)
     try:
@@ -109,22 +92,19 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
     finally:
         teardown_openclaw(handle)
 
-    summary_text = " ".join(
-        str(result.get(key, "")) for key in ("root_cause", "problem_md", "slack_message")
-    ).lower()
-    assert "openclaw" in summary_text, result
+    summary = summarize_result(result)
+    assert "openclaw" in summary, result
     # The RCA can legitimately attribute the failure at either the
     # Gateway layer ("openclaw gateway down") or the bridge layer
     # ("openclaw mcp bridge unreachable") — both identify the right
     # OpenClaw subsystem and are correct readings of the captured
     # ECONNREFUSED. Accept either.
-    assert ("gateway" in summary_text) or ("bridge" in summary_text), result
+    assert ("gateway" in summary) or ("bridge" in summary), result
 
     # Remediation should steer the user back to running the Gateway or
     # restarting the bridge — either is a valid action that resolves
     # the ECONNREFUSED failure.
-    remediation_text = str(result.get("remediation_steps", result.get("remediation", ""))).lower()
-    combined = summary_text + " " + remediation_text
+    combined = f"{summary} {remediation_text(result)}"
     assert ("openclaw gateway" in combined) or ("openclaw mcp" in combined), result
 
     # validity_score logged but not gated — see tests/e2e/openclaw/README.md

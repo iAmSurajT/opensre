@@ -84,6 +84,30 @@ def openclaw_cli_available() -> bool:
     return shutil.which("openclaw") is not None
 
 
+# Shared skip-reason strings + LLM credential probe used by every
+# scenario test file. Centralized so the wording stays consistent and a
+# new scenario doesn't have to copy/paste them.
+OPENCLAW_CLI_SKIP_REASON = "openclaw CLI not installed — see tests/e2e/openclaw/README.md"
+LLM_CREDENTIAL_SKIP_REASON = (
+    "No LLM credential set (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) "
+    "— full RCA invocation skipped."
+)
+_LLM_CREDENTIAL_ENV_VARS: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+)
+
+
+def llm_credentials_present() -> bool:
+    """True when at least one OpenSRE-supported LLM API key is set.
+
+    Full-RCA sub-tests skipif on this; use-case sub-tests run without
+    an LLM key.
+    """
+    return any(os.environ.get(var) for var in _LLM_CREDENTIAL_ENV_VARS)
+
+
 def _node_version_ok() -> bool:
     """OpenClaw needs Node 22.12+; older Node prints the requirement to
     stderr and exits non-zero, so we can detect by trying ``--version``.

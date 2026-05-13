@@ -15,13 +15,14 @@ sub-test (it skips just to keep the suite uniform across scenarios).
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from tests.e2e.openclaw.infrastructure_sdk.fault_injection import inject_wrong_endpoint
 from tests.e2e.openclaw.infrastructure_sdk.local import (
+    LLM_CREDENTIAL_SKIP_REASON,
+    OPENCLAW_CLI_SKIP_REASON,
     boot_openclaw,
+    llm_credentials_present,
     openclaw_cli_available,
     teardown_openclaw,
 )
@@ -30,20 +31,7 @@ from tests.e2e.openclaw.use_case import drive_openclaw_conversation
 pytestmark = pytest.mark.e2e
 
 
-def _llm_credentials_present() -> bool:
-    """RCA needs a live LLM call. We accept any of OpenSRE's supported
-    keys so contributors with Anthropic / OpenAI / Gemini configured
-    can all run the full pipeline.
-    """
-    return any(
-        os.environ.get(var) for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
-    )
-
-
-@pytest.mark.skipif(
-    not openclaw_cli_available(),
-    reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
-)
+@pytest.mark.skipif(not openclaw_cli_available(), reason=OPENCLAW_CLI_SKIP_REASON)
 def test_wrong_endpoint_use_case_captures_validation_hint() -> None:
     """Misconfigured streamable-http URL targeting the Control UI port
     must fail ``validate_openclaw_config`` with the canonical "use mode
@@ -71,17 +59,8 @@ def test_wrong_endpoint_use_case_captures_validation_hint() -> None:
     assert "openclaw" in detail, context
 
 
-@pytest.mark.skipif(
-    not openclaw_cli_available(),
-    reason="openclaw CLI not installed — see tests/e2e/openclaw/README.md",
-)
-@pytest.mark.skipif(
-    not _llm_credentials_present(),
-    reason=(
-        "No LLM credential set (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) "
-        "— full RCA invocation skipped."
-    ),
-)
+@pytest.mark.skipif(not openclaw_cli_available(), reason=OPENCLAW_CLI_SKIP_REASON)
+@pytest.mark.skipif(not llm_credentials_present(), reason=LLM_CREDENTIAL_SKIP_REASON)
 def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     """Run the full OpenSRE investigation against the captured
     misconfiguration. Asserts the RCA names OpenClaw + flags the
@@ -90,7 +69,11 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     Real LLM call inside — count this as an integration cost when
     running locally. Skipped when no LLM credential is configured.
     """
-    from tests.e2e.openclaw.orchestrator import run_openclaw_investigation
+    from tests.e2e.openclaw.orchestrator import (
+        remediation_text,
+        run_openclaw_investigation,
+        summarize_result,
+    )
 
     handle = boot_openclaw(with_gateway=False)
     try:
@@ -101,15 +84,12 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     finally:
         teardown_openclaw(handle)
 
-    summary_text = " ".join(
-        str(result.get(key, "")) for key in ("root_cause", "problem_md", "slack_message")
-    ).lower()
-    assert "openclaw" in summary_text, result
+    summary = summarize_result(result)
+    assert "openclaw" in summary, result
     # The RCA should call out either the Control UI mistake or the
     # stdio remediation — we accept either as evidence the misconfig
     # hint propagated through the investigation surface.
-    remediation_text = str(result.get("remediation_steps", result.get("remediation", ""))).lower()
-    combined = summary_text + " " + remediation_text
+    combined = f"{summary} {remediation_text(result)}"
     assert ("control ui" in combined) or ("stdio" in combined), result
 
     # validity_score logged but not gated — see tests/e2e/openclaw/README.md
