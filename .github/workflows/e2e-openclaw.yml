@@ -93,23 +93,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
-    env:
-      # OpenClaw e2e exercises only the OpenClaw integration — the
-      # bridge spawn, the gateway-down failure, the RCA call. So the
-      # secrets envelope is intentionally narrower than the main
-      # ``test`` job in ``ci.yml`` (which runs the full suite + needs
-      # Grafana / GCloud / JWT secrets). Adding more here when scenarios
-      # grow to need them is fine; the goal is to keep the secret
-      # surface minimal until a concrete test pulls one in.
-      #
-      # ``ANTHROPIC_API_KEY`` gates the full-RCA orchestrator test —
-      # the use-case sub-tests run without it. LangSmith vars are
-      # optional; runs pass without them but lose the e2e trace.
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-      LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+    # No ``env:`` block by design. CI runs the boot + use-case
+    # scenarios only — the full-RCA sub-tests call an LLM, cost API
+    # credits, and take ~25s each, so we deliberately don't wire any
+    # LLM secret in. They auto-skip via
+    # ``LLM_CREDENTIAL_SKIP_REASON`` when no key is present in env.
+    # Contributors with ANTHROPIC_API_KEY / OPENAI_API_KEY /
+    # GEMINI_API_KEY set locally still run them via
+    # ``make test-openclaw``. LangSmith vars stay scoped to the
+    # local-RCA path for the same reason — no value tracing the
+    # use-case-only CI runs.
 
     steps:
       - uses: actions/checkout@v5
@@ -154,16 +147,15 @@ jobs:
           echo "✓ OpenClaw verified: $version_output"
           echo "openclaw_runnable=true" >> "$GITHUB_ENV"
 
-      - name: Probe LLM credentials
-        # Full-RCA sub-tests need an LLM key. Without one, only the use-case
-        # sub-tests run. We surface this explicitly so the workflow summary
-        # tells reviewers WHY they got fewer assertions covered.
+      - name: Note LLM credential policy
+        # CI deliberately does not wire any LLM key, so the full-RCA
+        # sub-tests skip every run. This step is informational — it
+        # makes the policy obvious in the run log instead of leaving a
+        # silent skip that a reviewer has to dig for. Run RCA locally
+        # with ``make test-openclaw`` if you have a key configured.
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$GEMINI_API_KEY" ]; then
-            echo "::warning::No LLM credential in env (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) — full-RCA sub-tests will skip; only use-case sub-tests will run. Add ANTHROPIC_API_KEY to repo secrets to enable them."
-          else
-            echo "✓ LLM credential detected — full-RCA sub-tests will run."
-          fi
+          echo "ℹ︎ CI policy: full-RCA sub-tests are skipped (LLM credentials intentionally not wired)."
+          echo "  Boot + use-case sub-tests still run and gate the merge."
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -203,7 +195,7 @@ jobs:
 
       - name: Summary
         # Always runs, regardless of earlier step outcomes. The probe
-        # steps above downgrade a missing-CLI / wrong-Node environment
+        # step above downgrades a missing-CLI / wrong-Node environment
         # to "tests skipped" rather than failing the workflow, so this
         # summary is the one place a reviewer sees why fewer tests ran
         # than expected. Real pytest failures still fail the job.
@@ -211,8 +203,5 @@ jobs:
         run: |
           echo "### OpenClaw E2E run summary"
           echo "  OpenClaw runnable: ${openclaw_runnable:-unknown}"
-          if [ -n "$ANTHROPIC_API_KEY" ] || [ -n "$OPENAI_API_KEY" ] || [ -n "$GEMINI_API_KEY" ]; then
-            echo "  LLM credential:    present"
-          else
-            echo "  LLM credential:    absent (LLM sub-tests skipped)"
-          fi
+          echo "  Full-RCA sub-tests: skipped by CI policy (no LLM key wired)"
+          echo "  Run RCA locally with: make test-openclaw"
