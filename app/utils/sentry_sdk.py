@@ -289,6 +289,8 @@ def _init_sentry_once(
     """
     import sentry_sdk
 
+    from app.integrations.llm_cli.errors import CLIAuthenticationRequired, CLITemporaryFailure
+
     sentry_sdk.init(
         dsn=dsn,
         environment=environment,
@@ -302,6 +304,7 @@ def _init_sentry_once(
         integrations=_build_sentry_integrations(),
         before_send=_before_send,
         before_breadcrumb=_before_breadcrumb,
+        ignore_errors=[CLIAuthenticationRequired, CLITemporaryFailure],
     )
 
 

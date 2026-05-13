@@ -8,12 +8,18 @@ from typing import NoReturn
 def reraise_cli_runtime_error(exc: BaseException) -> NoReturn:
     """Convert CLI auth/setup failures to structured CLI UX errors."""
     from app.cli.support.errors import OpenSREError
-    from app.integrations.llm_cli.errors import CLIAuthenticationRequired
+    from app.integrations.llm_cli.errors import CLIAuthenticationRequired, CLITemporaryFailure
 
     if isinstance(exc, CLIAuthenticationRequired):
         raise OpenSREError(
             f"{exc.provider} CLI is not authenticated.",
             suggestion=f"{exc.auth_hint} ({exc.detail})",
+        ) from exc
+
+    if isinstance(exc, CLITemporaryFailure):
+        raise OpenSREError(
+            "CLI tool encountered a temporary failure.",
+            suggestion=str(exc),
         ) from exc
 
     if isinstance(exc, RuntimeError):
