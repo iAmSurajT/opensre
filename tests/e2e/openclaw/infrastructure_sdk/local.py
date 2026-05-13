@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -44,6 +45,12 @@ _DEV_STATE_DIR = Path.home() / ".openclaw-dev"
 _HEALTHCHECK_POLL_INTERVAL_S = 0.1
 _HEALTHCHECK_TIMEOUT_S = 20.0
 _GATEWAY_READY_MARKER = b"[gateway] ready"
+# OpenClaw emits ANSI color codes when it detects a TTY-ish environment
+# (it does even when stdout is redirected to a file on darwin), which
+# splits the ``[gateway] ready`` literal into ``[gateway]\x1b[…]m
+# ready``. Strip ANSI escapes before searching so the marker matches
+# either colored or uncolored output (CI runners are uncolored).
+_ANSI_ESCAPE_RE = re.compile(rb"\x1b\[[0-9;]*[A-Za-z]")
 
 # SIGTERM grace before escalating to SIGKILL — matches the pattern used
 # by ``app.cli.interactive_shell.orchestration.action_executor.terminate_child_process``.
@@ -120,9 +127,10 @@ def _gateway_log_contains_ready(log_path: Path) -> bool:
     """True when the Gateway log contains the ``[gateway] ready`` marker."""
     try:
         with log_path.open("rb") as fh:
-            return _GATEWAY_READY_MARKER in fh.read()
+            raw = fh.read()
     except OSError:
         return False
+    return _GATEWAY_READY_MARKER in _ANSI_ESCAPE_RE.sub(b"", raw)
 
 
 def _wait_for_healthy(
