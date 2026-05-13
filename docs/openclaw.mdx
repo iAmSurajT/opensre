@@ -127,6 +127,6 @@ Scenarios:
 - `test_wrong_endpoint.py` — config points at the Control UI port (`18789`); RCA must recommend `stdio`.
 - `test_tool_call_timeout.py` — a fixture MCP tool sleeps past `OpenClawConfig.timeout_seconds`; RCA must surface "timeout".
 
-CI: `.github/workflows/e2e-openclaw.yml` runs the suite on PRs labeled `ci:openclaw`. Add `ANTHROPIC_API_KEY` to repo secrets to enable the full-RCA sub-tests.
+CI: `.github/workflows/e2e-openclaw.yml` auto-runs on PRs and pushes to `main` that touch OpenClaw-related paths, plus a daily 06:00 UTC schedule and a manual dispatch button. Add `ANTHROPIC_API_KEY` to repo secrets to enable the full-RCA sub-tests.
 
 For the deeper reference (layout, fault-injection contract, how to add a new scenario) see [`tests/e2e/openclaw/README.md`](https://github.com/Tracer-Cloud/opensre/tree/main/tests/e2e/openclaw/README.md).
