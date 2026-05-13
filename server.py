@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Response, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.config import LLMSettings, get_environment
@@ -21,6 +23,13 @@ from app.version import get_version
 from app.webapp import HealthResponse, get_health_response
 
 app = FastAPI(title="OpenSRE Self-Hosted API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 graph = build_graph()
 
@@ -167,3 +176,10 @@ async def investigate_direct(request: RunRequest):
         "status": run_resp.status,
         "result": run_resp.result,
     }
+
+
+import pathlib
+
+_dashboard_dir = pathlib.Path(__file__).parent / "dashboard"
+if _dashboard_dir.exists():
+    app.mount("/dashboard", StaticFiles(directory=str(_dashboard_dir), html=True), name="dashboard")
