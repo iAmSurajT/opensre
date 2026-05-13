@@ -62,7 +62,7 @@ _OPERATOR_ACTIONABLE_LLM_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
     # Billing quota exhausted (Anthropic "usage limits", OpenAI "insufficient_quota").
     re.compile(r"\bbilling quota exceeded\b", re.I),
     # Transient API timeout — operator should retry or check endpoint health.
-    re.compile(r"\bapi request timed out\b", re.I),
+    re.compile(r"\bapi request timed out\.\s+Check that the service is running\b", re.I),
 )
 
 

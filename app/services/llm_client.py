@@ -343,11 +343,17 @@ class BedrockLLMClient:
                 break
             except AnthropicBadRequestError as err:
                 err_msg = str(err)
-                if "on-demand throughput" in err_msg or "inference profile" in err_msg.lower():
+                err_msg_lower = err_msg.lower()
+                if "on-demand throughput" in err_msg or "inference profile" in err_msg_lower:
                     raise RuntimeError(
                         f"Bedrock model '{self._model}' requires a cross-region inference profile. "
                         f"Try prefixing with 'us.' (e.g. 'us.{self._model}') and update "
                         "BEDROCK_REASONING_MODEL or BEDROCK_TOOLCALL_MODEL."
+                    ) from err
+                if "usage limits" in err_msg_lower:
+                    raise RuntimeError(
+                        f"Anthropic billing quota exceeded for Bedrock model '{self._model}'. "
+                        "Check your account plan and usage limits."
                     ) from err
                 raise RuntimeError(
                     f"Bedrock Anthropic request rejected (HTTP 400) for model "
