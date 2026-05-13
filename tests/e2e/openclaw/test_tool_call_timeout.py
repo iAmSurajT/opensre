@@ -92,4 +92,6 @@ def test_tool_call_timeout_investigation_identifies_timeout() -> None:
     assert "openclaw" in summary_text, result
     assert "timeout" in summary_text or "timed out" in summary_text, result
 
+    # validity_score logged but not gated — see tests/e2e/openclaw/README.md
+    # "Note on validity_score" for the deviation from #1484 AC.
     print(f"validity_score={result.get('validity_score', 0)} (logged, not asserted)")

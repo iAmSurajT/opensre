@@ -127,8 +127,6 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
     combined = summary_text + " " + remediation_text
     assert ("openclaw gateway" in combined) or ("openclaw mcp" in combined), result
 
-    # validity_score is logged for visibility but not gated: the
-    # metrics-less e2e setup can't credit "validated-with-evidence"
-    # claims, so scores land in the 0.4–0.5 band by design. Matches
-    # the tests/e2e/upstream_prefect_ecs_fargate pattern.
+    # validity_score logged but not gated — see tests/e2e/openclaw/README.md
+    # "Note on validity_score" for the deviation from #1484 AC.
     print(f"validity_score={result.get('validity_score', 0)} (logged, not asserted)")

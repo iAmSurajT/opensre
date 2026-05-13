@@ -112,4 +112,6 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     combined = summary_text + " " + remediation_text
     assert ("control ui" in combined) or ("stdio" in combined), result
 
+    # validity_score logged but not gated — see tests/e2e/openclaw/README.md
+    # "Note on validity_score" for the deviation from #1484 AC.
     print(f"validity_score={result.get('validity_score', 0)} (logged, not asserted)")
