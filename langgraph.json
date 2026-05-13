@@ -4,12 +4,10 @@
   "graphs": {
     "agent": "./app/graph_pipeline.py:build_graph"
   },
-  "auth": {
-    "path": "./app/auth/auth.py:auth"
-  },
   "http": {
     "app": "./app/webapp.py:app"
   },
   "env": ".env",
-  "image_distro": "wolfi"
+  "image_distro": "wolfi",
+  "python_version": "3.12"
 }
