@@ -21,12 +21,16 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .header h1 {
             font-size: 20px;
             font-weight: 600;
             color: #fff;
+            cursor: pointer;
         }
 
         .header .status {
@@ -47,15 +51,20 @@
         .status-dot.unhealthy { background: #ef4444; }
 
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 24px;
         }
 
+        /* -- Page Views -- */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* -- Cards -- */
         .grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 16px;
             margin-bottom: 24px;
         }
 
@@ -63,43 +72,48 @@
             background: #1a2332;
             border: 1px solid #2d3d50;
             border-radius: 8px;
-            padding: 20px;
+            padding: 16px;
         }
 
         .card h2 {
-            font-size: 14px;
+            font-size: 11px;
             font-weight: 500;
-            color: #9ca3af;
-            margin-bottom: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .card .value {
-            font-size: 28px;
+            font-size: 22px;
             font-weight: 700;
             color: #fff;
         }
 
         .card .value.green { color: #10b981; }
         .card .value.red { color: #ef4444; }
-        .card .value.yellow { color: #f59e0b; }
 
-        .investigate-section {
-            background: #1a2332;
-            border: 1px solid #2d3d50;
-            border-radius: 8px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-
-        .investigate-section h2 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
+        /* -- Buttons -- */
+        .btn {
+            background: #2563eb;
             color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
         }
 
+        .btn:hover { background: #1d4ed8; }
+        .btn:disabled { background: #374151; cursor: not-allowed; color: #6b7280; }
+        .btn.secondary { background: #374151; }
+        .btn.secondary:hover { background: #4b5563; }
+        .btn.large { padding: 14px 28px; font-size: 15px; }
+        .btn.full { width: 100%; }
+
+        /* -- Forms -- */
         .form-group {
             margin-bottom: 16px;
         }
@@ -124,6 +138,13 @@
             font-family: inherit;
         }
 
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
         .form-group textarea {
             min-height: 100px;
             resize: vertical;
@@ -137,41 +158,104 @@
             gap: 12px;
         }
 
-        .btn {
-            background: #2563eb;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .btn:hover { background: #1d4ed8; }
-        .btn:disabled { background: #374151; cursor: not-allowed; }
-        .btn.secondary { background: #374151; }
-        .btn.secondary:hover { background: #4b5563; }
-
-        .results-section {
+        /* -- Sections -- */
+        .section {
             background: #1a2332;
             border: 1px solid #2d3d50;
             border-radius: 8px;
             padding: 24px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
-        .results-section h2 {
+        .section h2 {
             font-size: 16px;
             font-weight: 600;
             margin-bottom: 16px;
             color: #fff;
+        }
+
+        .section h3 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #9ca3af;
+            margin-bottom: 12px;
+        }
+
+        /* -- Thread Banner -- */
+        .thread-banner {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .thread-banner .thread-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .thread-banner .thread-id {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: #60a5fa;
+            background: #1e3a5f;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .thread-banner .thread-label {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        /* -- Steps -- */
+        .steps {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 24px;
+        }
+
+        .step {
             display: flex;
             align-items: center;
             gap: 8px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #6b7280;
         }
 
+        .step.active { color: #fff; background: #1e3a5f; }
+        .step.done { color: #10b981; }
+
+        .step-number {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #374151;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .step.active .step-number { border-color: #2563eb; background: #2563eb; color: #fff; }
+        .step.done .step-number { border-color: #10b981; background: #10b981; color: #fff; }
+
+        .step-connector {
+            width: 30px;
+            height: 2px;
+            background: #374151;
+        }
+
+        /* -- Results -- */
         .result-card {
             background: #0f1419;
             border: 1px solid #2d3d50;
@@ -181,7 +265,7 @@
         }
 
         .result-card h3 {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: #60a5fa;
             margin-bottom: 8px;
@@ -193,12 +277,12 @@
             color: #d1d5db;
             white-space: pre-wrap;
             word-break: break-word;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
-        .result-card .badge {
+        .badge {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: 600;
@@ -209,23 +293,75 @@
         .badge.failed { background: #7f1d1d; color: #ef4444; }
         .badge.running { background: #78350f; color: #f59e0b; }
 
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #374151;
-            border-top-color: #60a5fa;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+        /* -- Chat -- */
+        .chat-container {
+            border: 1px solid #2d3d50;
+            border-radius: 8px;
+            overflow: hidden;
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 16px;
+            background: #0f1419;
+        }
 
+        .chat-msg {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-msg .role {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .chat-msg.user .role { color: #60a5fa; }
+        .chat-msg.assistant .role { color: #10b981; }
+
+        .chat-msg .content {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #e1e8ed;
+            padding: 10px 14px;
+            background: #1a2332;
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+
+        .chat-msg.user .content { background: #1e3a5f; }
+
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            background: #1a2332;
+            border-top: 1px solid #2d3d50;
+        }
+
+        .chat-input-row input {
+            flex: 1;
+            background: #0f1419;
+            border: 1px solid #2d3d50;
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: #e1e8ed;
+            font-size: 14px;
+        }
+
+        .chat-input-row input:focus { outline: none; border-color: #2563eb; }
+
+        /* -- History -- */
         .history-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
+            padding: 14px 16px;
             background: #0f1419;
             border: 1px solid #2d3d50;
             border-radius: 6px;
@@ -236,22 +372,45 @@
 
         .history-item:hover { border-color: #60a5fa; }
 
-        .history-item .meta {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
         .history-item .name {
             font-size: 14px;
             font-weight: 500;
             color: #fff;
         }
 
+        .history-item .meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .history-item .time {
             font-size: 12px;
             color: #6b7280;
         }
+
+        /* -- Spinner -- */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #374151;
+            border-top-color: #60a5fa;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-overlay {
+            text-align: center;
+            padding: 60px;
+            color: #9ca3af;
+        }
+
+        .loading-overlay .spinner { width: 32px; height: 32px; border-width: 3px; }
+        .loading-overlay p { margin-top: 16px; font-size: 14px; }
 
         .empty-state {
             text-align: center;
@@ -273,38 +432,29 @@
             background: transparent;
             color: #9ca3af;
             border: none;
-            transition: all 0.2s;
         }
 
-        .tab.active {
-            background: #2d3d50;
-            color: #fff;
-        }
-
+        .tab.active { background: #2d3d50; color: #fff; }
         .tab:hover { color: #fff; }
 
-        .log-output {
-            background: #000;
-            border: 1px solid #2d3d50;
-            border-radius: 6px;
-            padding: 16px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 12px;
-            line-height: 1.6;
-            max-height: 400px;
-            overflow-y: auto;
-            color: #10b981;
+        .breadcrumb {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
         }
 
-        .log-output .log-line { margin-bottom: 2px; }
-        .log-output .log-error { color: #ef4444; }
-        .log-output .log-warn { color: #f59e0b; }
-        .log-output .log-info { color: #60a5fa; }
+        .breadcrumb a {
+            color: #60a5fa;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>OpenSRE Dashboard</h1>
+        <h1 onclick="navigate('home')">OpenSRE</h1>
         <div class="status">
             <span id="status-text">Checking...</span>
             <span class="status-dot" id="status-dot"></span>
@@ -312,113 +462,215 @@
     </div>
 
     <div class="container">
-        <div class="grid">
-            <div class="card">
-                <h2>Server Status</h2>
-                <div class="value" id="server-status">--</div>
+        <!-- PAGE: Home / Dashboard -->
+        <div class="page active" id="page-home">
+            <div class="grid">
+                <div class="card">
+                    <h2>Status</h2>
+                    <div class="value" id="server-status">--</div>
+                </div>
+                <div class="card">
+                    <h2>Version</h2>
+                    <div class="value" id="server-version">--</div>
+                </div>
+                <div class="card">
+                    <h2>LLM</h2>
+                    <div class="value" id="llm-status">--</div>
+                </div>
+                <div class="card">
+                    <h2>Investigations</h2>
+                    <div class="value" id="investigation-count">0</div>
+                </div>
             </div>
-            <div class="card">
-                <h2>Version</h2>
-                <div class="value" id="server-version">--</div>
+
+            <div class="section">
+                <h2>Start New Investigation</h2>
+                <p style="color:#9ca3af;font-size:14px;margin-bottom:16px;">
+                    Create a new thread to begin investigating an incident. Each thread tracks one incident with its investigation runs and follow-up chat.
+                </p>
+                <button class="btn large" onclick="createNewThread()">Create Thread &amp; Investigate</button>
             </div>
-            <div class="card">
-                <h2>LLM Provider</h2>
-                <div class="value" id="llm-status">--</div>
-            </div>
-            <div class="card">
-                <h2>Investigations Run</h2>
-                <div class="value" id="investigation-count">0</div>
+
+            <div class="section">
+                <h2>Investigation History</h2>
+                <div id="history-container">
+                    <div class="empty-state">No investigations yet.</div>
+                </div>
             </div>
         </div>
 
-        <div class="investigate-section">
-            <h2>New Investigation</h2>
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('form')">Form</button>
-                <button class="tab" onclick="switchTab('json')">Raw JSON</button>
+        <!-- PAGE: Investigation (Thread View) -->
+        <div class="page" id="page-investigate">
+            <div class="breadcrumb">
+                <a onclick="navigate('home')">Dashboard</a> / Investigation
             </div>
 
-            <div id="tab-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Service Name</label>
-                        <input type="text" id="input-service" placeholder="bid-ask-decorator" />
+            <div class="thread-banner">
+                <div class="thread-info">
+                    <span class="thread-label">Thread</span>
+                    <span class="thread-id" id="current-thread-id">--</span>
+                </div>
+                <span class="badge" id="thread-status-badge">active</span>
+            </div>
+
+            <div class="steps" id="step-indicator">
+                <div class="step active" id="step-1">
+                    <span class="step-number">1</span>
+                    <span>Input</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step" id="step-2">
+                    <span class="step-number">2</span>
+                    <span>Investigate</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step" id="step-3">
+                    <span class="step-number">3</span>
+                    <span>Results</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step" id="step-4">
+                    <span class="step-number">4</span>
+                    <span>Chat</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Input -->
+            <div id="investigate-step-1">
+                <div class="section">
+                    <h2>Alert Details</h2>
+                    <h3>Provide the alert information to investigate</h3>
+
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchInputTab('form')">Form</button>
+                        <button class="tab" onclick="switchInputTab('json')">Raw JSON</button>
                     </div>
-                    <div class="form-group">
-                        <label>Environment</label>
-                        <select id="input-env">
-                            <option value="production">Production</option>
-                            <option value="staging">Staging</option>
-                        </select>
+
+                    <div id="input-tab-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Service Name *</label>
+                                <input type="text" id="input-service" placeholder="bid-ask-decorator" />
+                            </div>
+                            <div class="form-group">
+                                <label>Environment</label>
+                                <select id="input-env">
+                                    <option value="production">Production</option>
+                                    <option value="staging">Staging</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Severity</label>
+                                <select id="input-severity">
+                                    <option value="error">Error</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Alert Name</label>
+                            <input type="text" id="input-alert-name" placeholder="Warn: Bid Ask Decorator Errors" />
+                        </div>
+                        <div class="form-group">
+                            <label>Error Message (from logs) *</label>
+                            <textarea id="input-error-msg" placeholder="The group is rebalancing, so a rejoin is needed"></textarea>
+                        </div>
+                        <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                            <div class="form-group">
+                                <label>Monitor ID (optional)</label>
+                                <input type="text" id="input-monitor-id" placeholder="18675899" />
+                            </div>
+                            <div class="form-group">
+                                <label>Host (optional)</label>
+                                <input type="text" id="input-host" placeholder="i-0ceb19cab98e946f9" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Runbook URL (optional)</label>
+                            <input type="text" id="input-runbook" placeholder="https://..." />
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Severity</label>
-                        <select id="input-severity">
-                            <option value="error">Error</option>
-                            <option value="warning">Warning</option>
-                            <option value="critical">Critical</option>
-                        </select>
+
+                    <div id="input-tab-json" style="display:none;">
+                        <div class="form-group">
+                            <label>Full Alert Payload (JSON)</label>
+                            <textarea id="input-raw-json" style="min-height:250px;" placeholder='Paste your Datadog alert JSON here...'></textarea>
+                        </div>
+                    </div>
+
+                    <button class="btn large" id="btn-run-investigation" onclick="runInvestigation()">
+                        Run Investigation
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Loading -->
+            <div id="investigate-step-2" style="display:none;">
+                <div class="section">
+                    <div class="loading-overlay">
+                        <div class="spinner"></div>
+                        <p>Investigating... This may take 30-60 seconds.</p>
+                        <p style="margin-top:8px;font-size:12px;color:#6b7280;">
+                            The agent is querying Datadog, correlating signals, and analyzing root cause.
+                        </p>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Alert Name</label>
-                    <input type="text" id="input-alert-name" placeholder="Warn: Bid Ask Decorator Errors" />
-                </div>
-                <div class="form-group">
-                    <label>Error Message (from logs)</label>
-                    <textarea id="input-error-msg" placeholder="The group is rebalancing, so a rejoin is needed"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Monitor ID (optional)</label>
-                    <input type="text" id="input-monitor-id" placeholder="18675899" />
+            </div>
+
+            <!-- Step 3: Results -->
+            <div id="investigate-step-3" style="display:none;">
+                <div class="section">
+                    <h2>Investigation Results</h2>
+                    <div id="results-container"></div>
+                    <div style="margin-top:16px;">
+                        <button class="btn" onclick="showChatStep()">Ask Follow-up Questions</button>
+                        <button class="btn secondary" style="margin-left:8px;" onclick="rerunInvestigation()">Re-run Investigation</button>
+                    </div>
                 </div>
             </div>
 
-            <div id="tab-json" style="display:none;">
-                <div class="form-group">
-                    <label>Alert Payload (JSON)</label>
-                    <textarea id="input-raw-json" style="min-height:200px;" placeholder='{"source": "datadog", "monitor": {"name": "..."}, "alert": {...}}'></textarea>
+            <!-- Step 4: Chat -->
+            <div id="investigate-step-4" style="display:none;">
+                <div class="section">
+                    <h2>Follow-up Chat</h2>
+                    <h3>Ask questions about this investigation on thread <span id="chat-thread-id"></span></h3>
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chat-messages"></div>
+                        <div class="chat-input-row">
+                            <input type="text" id="chat-input" placeholder="Ask a follow-up question..." onkeydown="if(event.key==='Enter')sendChat()" />
+                            <button class="btn" id="btn-send-chat" onclick="sendChat()">Send</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <button class="btn" id="btn-investigate" onclick="runInvestigation()">Run Investigation</button>
-        </div>
-
-        <div class="results-section">
-            <h2>
-                <span>Investigation Results</span>
-                <span class="spinner" id="loading-spinner" style="display:none;"></span>
-            </h2>
-
-            <div id="results-container">
-                <div class="empty-state">No investigations yet. Submit an alert above to get started.</div>
-            </div>
-        </div>
-
-        <div class="results-section">
-            <h2>Investigation History</h2>
-            <div id="history-container">
-                <div class="empty-state">Completed investigations will appear here.</div>
             </div>
         </div>
     </div>
 
     <script>
         const API_BASE = 'http://localhost:8000';
+        let currentThreadId = null;
         let investigationCount = 0;
-        let history = [];
+        let historyList = [];
+        let chatMessages = [];
 
+        // -- Navigation --
+        function navigate(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${page}`).classList.add('active');
+        }
+
+        // -- Health Check --
         async function checkHealth() {
             try {
                 const resp = await fetch(`${API_BASE}/health`);
                 const data = await resp.json();
-
                 document.getElementById('status-dot').className = `status-dot ${data.ok ? 'healthy' : 'unhealthy'}`;
                 document.getElementById('status-text').textContent = data.ok ? 'Healthy' : 'Degraded';
                 document.getElementById('server-status').textContent = data.ok ? 'Online' : 'Degraded';
                 document.getElementById('server-status').className = `value ${data.ok ? 'green' : 'red'}`;
                 document.getElementById('server-version').textContent = data.version;
-                document.getElementById('llm-status').textContent = data.llm_configured ? 'Configured' : 'Not Set';
+                document.getElementById('llm-status').textContent = data.llm_configured ? 'Ready' : 'Not Set';
                 document.getElementById('llm-status').className = `value ${data.llm_configured ? 'green' : 'red'}`;
             } catch (e) {
                 document.getElementById('status-dot').className = 'status-dot unhealthy';
@@ -428,79 +680,118 @@
             }
         }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            if (tab === 'form') {
-                document.getElementById('tab-form').style.display = 'block';
-                document.getElementById('tab-json').style.display = 'none';
-                document.querySelectorAll('.tab')[0].classList.add('active');
-            } else {
-                document.getElementById('tab-form').style.display = 'none';
-                document.getElementById('tab-json').style.display = 'block';
-                document.querySelectorAll('.tab')[1].classList.add('active');
+        // -- Thread Creation --
+        async function createNewThread() {
+            try {
+                const resp = await fetch(`${API_BASE}/threads`, { method: 'POST' });
+                const data = await resp.json();
+                currentThreadId = data.thread_id;
+
+                document.getElementById('current-thread-id').textContent = currentThreadId;
+                document.getElementById('chat-thread-id').textContent = currentThreadId;
+                resetSteps();
+                navigate('investigate');
+            } catch (e) {
+                alert('Failed to create thread. Is the server running?');
             }
         }
 
-        function buildPayloadFromForm() {
+        // -- Steps --
+        function setStep(num) {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`step-${i}`);
+                const content = document.getElementById(`investigate-step-${i}`);
+                el.className = 'step';
+                if (content) content.style.display = 'none';
+
+                if (i < num) el.classList.add('done');
+                if (i === num) el.classList.add('active');
+            }
+            const activeContent = document.getElementById(`investigate-step-${num}`);
+            if (activeContent) activeContent.style.display = 'block';
+        }
+
+        function resetSteps() {
+            setStep(1);
+            document.getElementById('results-container').innerHTML = '';
+            chatMessages = [];
+            document.getElementById('chat-messages').innerHTML = '';
+        }
+
+        // -- Input Tabs --
+        function switchInputTab(tab) {
+            document.querySelectorAll('#page-investigate .tabs .tab').forEach(t => t.classList.remove('active'));
+            if (tab === 'form') {
+                document.getElementById('input-tab-form').style.display = 'block';
+                document.getElementById('input-tab-json').style.display = 'none';
+                document.querySelectorAll('#page-investigate .tabs .tab')[0].classList.add('active');
+            } else {
+                document.getElementById('input-tab-form').style.display = 'none';
+                document.getElementById('input-tab-json').style.display = 'block';
+                document.querySelectorAll('#page-investigate .tabs .tab')[1].classList.add('active');
+            }
+        }
+
+        // -- Build Payload --
+        function buildPayload() {
+            const jsonTab = document.getElementById('input-tab-json');
+            if (jsonTab.style.display !== 'none') {
+                const raw = document.getElementById('input-raw-json').value;
+                return { input: JSON.parse(raw), mode: 'investigation' };
+            }
+
             const service = document.getElementById('input-service').value;
             const env = document.getElementById('input-env').value;
             const severity = document.getElementById('input-severity').value;
             const alertName = document.getElementById('input-alert-name').value;
             const errorMsg = document.getElementById('input-error-msg').value;
             const monitorId = document.getElementById('input-monitor-id').value;
+            const host = document.getElementById('input-host').value;
+            const runbook = document.getElementById('input-runbook').value;
 
-            return {
-                input: {
-                    source: 'datadog',
-                    type: 'log_alert',
-                    monitor: {
-                        id: monitorId ? parseInt(monitorId) : 0,
-                        name: alertName || 'Manual Investigation'
-                    },
-                    alert: {
-                        query: `service:${service}* status:${severity} env:${env}`,
-                        environment: env,
-                        service: service,
-                        status: severity
-                    },
-                    samples: errorMsg ? [{
-                        timestamp: new Date().toISOString(),
-                        host: 'manual',
-                        message: errorMsg
-                    }] : []
-                },
-                mode: 'investigation'
-            };
-        }
-
-        async function runInvestigation() {
-            const btn = document.getElementById('btn-investigate');
-            const spinner = document.getElementById('loading-spinner');
-
-            btn.disabled = true;
-            btn.textContent = 'Investigating...';
-            spinner.style.display = 'inline-block';
-
-            let payload;
-            const jsonTab = document.getElementById('tab-json');
-            if (jsonTab.style.display !== 'none') {
-                try {
-                    const raw = document.getElementById('input-raw-json').value;
-                    const parsed = JSON.parse(raw);
-                    payload = { input: parsed, mode: 'investigation' };
-                } catch (e) {
-                    alert('Invalid JSON payload');
-                    btn.disabled = false;
-                    btn.textContent = 'Run Investigation';
-                    spinner.style.display = 'none';
-                    return;
-                }
-            } else {
-                payload = buildPayloadFromForm();
+            if (!service || !errorMsg) {
+                throw new Error('Service name and error message are required.');
             }
 
+            const payload = {
+                source: 'datadog',
+                type: 'log_alert',
+                monitor: {
+                    id: monitorId ? parseInt(monitorId) : 0,
+                    name: alertName || `${service} errors`
+                },
+                alert: {
+                    query: `service:${service}* status:${severity} env:${env}`,
+                    environment: env,
+                    service: service,
+                    status: severity
+                },
+                samples: [{
+                    timestamp: new Date().toISOString(),
+                    host: host || 'unknown',
+                    message: errorMsg
+                }]
+            };
+
+            if (runbook) payload.links = { runbook: runbook };
+
+            return { input: payload, mode: 'investigation' };
+        }
+
+        // -- Run Investigation --
+        async function runInvestigation() {
+            let payload;
             try {
-                const resp = await fetch(`${API_BASE}/investigate`, {
+                payload = buildPayload();
+            } catch (e) {
+                alert(e.message);
+                return;
+            }
+
+            setStep(2);
+
+            try {
+                const resp = await fetch(`${API_BASE}/threads/${currentThreadId}/runs`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -510,19 +801,29 @@
                 investigationCount++;
                 document.getElementById('investigation-count').textContent = investigationCount;
 
-                displayResult(data, payload);
+                displayResults(data);
                 addToHistory(data, payload);
+                setStep(3);
 
             } catch (e) {
-                displayError(e.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Run Investigation';
-                spinner.style.display = 'none';
+                displayResults({ status: 'failed', result: null, error: e.message });
+                setStep(3);
             }
         }
 
-        function displayResult(data, payload) {
+        function rerunInvestigation() {
+            setStep(1);
+        }
+
+        function showChatStep() {
+            setStep(4);
+            if (chatMessages.length === 0) {
+                addSystemChatMessage('Investigation complete. Ask follow-up questions about this incident.');
+            }
+        }
+
+        // -- Display Results --
+        function displayResults(data) {
             const container = document.getElementById('results-container');
             const result = data.result || {};
 
@@ -530,123 +831,157 @@
                 <div class="result-card">
                     <h3>Status</h3>
                     <span class="badge ${data.status}">${data.status}</span>
-                    <span style="margin-left:8px;color:#6b7280;font-size:12px;">
-                        Thread: ${data.thread_id} | Run: ${data.run_id}
-                    </span>
+                    <span style="margin-left:8px;color:#6b7280;font-size:12px;">Run: ${data.run_id || 'N/A'}</span>
                 </div>
             `;
 
             if (result.root_cause) {
-                html += `
-                    <div class="result-card">
-                        <h3>Root Cause</h3>
-                        <pre>${escapeHtml(result.root_cause)}</pre>
-                    </div>
-                `;
+                html += `<div class="result-card"><h3>Root Cause</h3><pre>${esc(result.root_cause)}</pre></div>`;
             }
 
             if (result.root_cause_category) {
-                html += `
-                    <div class="result-card">
-                        <h3>Category</h3>
-                        <pre>${escapeHtml(result.root_cause_category)}</pre>
-                    </div>
-                `;
+                html += `<div class="result-card"><h3>Category</h3><pre>${esc(result.root_cause_category)}</pre></div>`;
             }
 
             if (result.remediation_steps && result.remediation_steps.length > 0) {
-                html += `
-                    <div class="result-card">
-                        <h3>Remediation Steps</h3>
-                        <pre>${escapeHtml(result.remediation_steps.map((s, i) => `${i + 1}. ${typeof s === 'string' ? s : JSON.stringify(s)}`).join('\n'))}</pre>
-                    </div>
-                `;
+                const steps = result.remediation_steps.map((s, i) =>
+                    `${i + 1}. ${typeof s === 'string' ? s : JSON.stringify(s)}`
+                ).join('\n');
+                html += `<div class="result-card"><h3>Remediation Steps</h3><pre>${esc(steps)}</pre></div>`;
             }
 
             if (result.report) {
-                html += `
-                    <div class="result-card">
-                        <h3>Full Report</h3>
-                        <pre>${escapeHtml(result.report)}</pre>
-                    </div>
-                `;
+                html += `<div class="result-card"><h3>Full Report</h3><pre>${esc(result.report)}</pre></div>`;
             }
 
             if (result.evidence && Object.keys(result.evidence).length > 0) {
-                html += `
-                    <div class="result-card">
-                        <h3>Evidence</h3>
-                        <pre>${escapeHtml(JSON.stringify(result.evidence, null, 2))}</pre>
-                    </div>
-                `;
+                html += `<div class="result-card"><h3>Evidence</h3><pre>${esc(JSON.stringify(result.evidence, null, 2))}</pre></div>`;
             }
 
-            if (!result.root_cause && !result.report) {
-                html += `
-                    <div class="result-card">
-                        <h3>Raw Response</h3>
-                        <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-                    </div>
-                `;
+            if (result.hypotheses && result.hypotheses.length > 0) {
+                html += `<div class="result-card"><h3>Hypotheses Explored</h3><pre>${esc(JSON.stringify(result.hypotheses, null, 2))}</pre></div>`;
+            }
+
+            if (!result.root_cause && !result.report && data.error) {
+                html += `<div class="result-card"><h3 style="color:#ef4444;">Error</h3><pre>${esc(data.error)}</pre></div>`;
+            }
+
+            if (!result.root_cause && !result.report && !data.error) {
+                html += `<div class="result-card"><h3>Raw Response</h3><pre>${esc(JSON.stringify(data, null, 2))}</pre></div>`;
             }
 
             container.innerHTML = html;
         }
 
-        function displayError(message) {
-            const container = document.getElementById('results-container');
-            container.innerHTML = `
-                <div class="result-card">
-                    <h3 style="color:#ef4444;">Error</h3>
-                    <pre class="log-error">${escapeHtml(message)}</pre>
-                </div>
-            `;
+        // -- Chat --
+        function addSystemChatMessage(text) {
+            chatMessages.push({ role: 'system', content: text });
+            renderChat();
         }
 
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            chatMessages.push({ role: 'user', content: message });
+            renderChat();
+
+            const btn = document.getElementById('btn-send-chat');
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            try {
+                const resp = await fetch(`${API_BASE}/threads/${currentThreadId}/runs`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input: { messages: [{ role: 'user', content: message }] },
+                        mode: 'chat'
+                    })
+                });
+
+                const data = await resp.json();
+                const result = data.result || {};
+                const reply = result.report || result.root_cause || JSON.stringify(result, null, 2);
+                chatMessages.push({ role: 'assistant', content: reply });
+            } catch (e) {
+                chatMessages.push({ role: 'assistant', content: `Error: ${e.message}` });
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Send';
+            renderChat();
+        }
+
+        function renderChat() {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = chatMessages.map(msg => `
+                <div class="chat-msg ${msg.role}">
+                    <span class="role">${msg.role}</span>
+                    <div class="content">${esc(msg.content)}</div>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // -- History --
         function addToHistory(data, payload) {
-            const alertName = payload.input?.monitor?.name || payload.input?.alert?.service || 'Investigation';
-            history.unshift({
-                name: alertName,
+            const name = payload.input?.monitor?.name || payload.input?.alert?.service || 'Investigation';
+            historyList.unshift({
+                name: name,
                 status: data.status,
                 time: new Date().toLocaleTimeString(),
-                thread_id: data.thread_id,
-                data: data
+                thread_id: currentThreadId,
+                data: data,
+                payload: payload
             });
-
             renderHistory();
         }
 
         function renderHistory() {
             const container = document.getElementById('history-container');
-            if (history.length === 0) {
-                container.innerHTML = '<div class="empty-state">Completed investigations will appear here.</div>';
+            if (historyList.length === 0) {
+                container.innerHTML = '<div class="empty-state">No investigations yet.</div>';
                 return;
             }
 
-            container.innerHTML = history.map((item, i) => `
-                <div class="history-item" onclick="showHistoryItem(${i})">
+            container.innerHTML = historyList.map((item, i) => `
+                <div class="history-item" onclick="viewHistoryItem(${i})">
+                    <div>
+                        <div class="name">${esc(item.name)}</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;font-family:monospace;">
+                            Thread: ${item.thread_id}
+                        </div>
+                    </div>
                     <div class="meta">
                         <span class="badge ${item.status}">${item.status}</span>
-                        <span class="name">${escapeHtml(item.name)}</span>
+                        <span class="time">${item.time}</span>
                     </div>
-                    <span class="time">${item.time}</span>
                 </div>
             `).join('');
         }
 
-        function showHistoryItem(index) {
-            const item = history[index];
-            displayResult(item.data, { input: { monitor: { name: item.name } } });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        function viewHistoryItem(index) {
+            const item = historyList[index];
+            currentThreadId = item.thread_id;
+            document.getElementById('current-thread-id').textContent = currentThreadId;
+            document.getElementById('chat-thread-id').textContent = currentThreadId;
+            navigate('investigate');
+            displayResults(item.data);
+            setStep(3);
         }
 
-        function escapeHtml(text) {
+        // -- Utility --
+        function esc(text) {
             if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
+        // -- Init --
         checkHealth();
         setInterval(checkHealth, 15000);
     </script>
