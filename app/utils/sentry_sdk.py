@@ -59,6 +59,10 @@ _OPERATOR_ACTIONABLE_LLM_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bLLM API request failed after multiple retries\b", re.I),
     # Provider endpoint unreachable (Ollama down, bad URL, SSL misconfiguration).
     re.compile(r"\bcannot connect to .+ api\b", re.I),
+    # Billing quota exhausted (Anthropic "usage limits", OpenAI "insufficient_quota").
+    re.compile(r"\bbilling quota exceeded\b", re.I),
+    # Transient API timeout — operator should retry or check endpoint health.
+    re.compile(r"\bapi request timed out\b", re.I),
 )
 
 

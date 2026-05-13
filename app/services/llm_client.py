@@ -179,6 +179,11 @@ class LLMClient:
                     "Check your configured model name and try again."
                 ) from err
             except AnthropicBadRequestError as err:
+                msg = err.message or ""
+                if "usage limits" in msg.lower():
+                    raise RuntimeError(
+                        "Anthropic billing quota exceeded. Check your plan and billing details."
+                    ) from err
                 raise RuntimeError(f"Anthropic request rejected (HTTP 400): {err.message}") from err
             except GuardrailBlockedError:
                 raise
@@ -227,6 +232,11 @@ class LLMClient:
                     "Check your configured model name and try again."
                 ) from err
             except AnthropicBadRequestError as err:
+                msg = err.message or ""
+                if "usage limits" in msg.lower():
+                    raise RuntimeError(
+                        "Anthropic billing quota exceeded. Check your plan and billing details."
+                    ) from err
                 raise RuntimeError(f"Anthropic request rejected (HTTP 400): {err.message}") from err
             except GuardrailBlockedError:
                 raise
