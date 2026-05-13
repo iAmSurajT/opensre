@@ -165,6 +165,34 @@ def get_thread_state(thread_id: str):
     )
 
 
+@app.get("/threads")
+def list_threads():
+    """List all threads with summary info."""
+    result = []
+    for tid, thread in threads.items():
+        runs = thread.get("runs", [])
+        latest_run = runs[-1] if runs else None
+        result.append({
+            "thread_id": tid,
+            "created_at": thread.get("created_at", ""),
+            "run_count": len(runs),
+            "latest_status": latest_run.get("status") if latest_run else None,
+            "latest_alert_name": _extract_alert_name(latest_run),
+            "latest_run_at": latest_run.get("started_at") if latest_run else None,
+        })
+    result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return result
+
+
+def _extract_alert_name(run_record: dict[str, Any] | None) -> str:
+    if not run_record:
+        return ""
+    result = run_record.get("result")
+    if not result:
+        return ""
+    return result.get("root_cause_category", "") or "Investigation"
+
+
 @app.post("/investigate")
 async def investigate_direct(request: RunRequest):
     """Convenience endpoint — creates a thread and runs investigation in one call."""
