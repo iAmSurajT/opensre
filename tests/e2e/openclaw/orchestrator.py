@@ -26,35 +26,23 @@ _PIPELINE_NAME = "openclaw_mcp_bridge"
 _ALERT_NAME = "OpenClaw MCP integration unreachable"
 
 # Keys that carry the RCA's narrative text in the result dict returned
-# by ``run_investigation_cli``. Used by ``summarize_result`` so scenario
-# tests don't each redefine the same key list.
-_SUMMARY_KEYS: tuple[str, ...] = ("root_cause", "problem_md", "slack_message")
-_REMEDIATION_KEYS: tuple[str, ...] = ("remediation_steps", "remediation")
+# by ``run_investigation_cli``. ``report`` is the rendered slack-style
+# report — it contains the diagnosis AND the "## Recommended Actions"
+# section, so a single concatenation is enough to substring-check both
+# the failure naming and the remediation hints.
+_SUMMARY_KEYS: tuple[str, ...] = ("root_cause", "problem_md", "report")
 
 
 def summarize_result(result: dict[str, Any]) -> str:
     """Lowercase concatenation of the RCA's narrative fields.
 
-    The investigation pipeline emits the diagnosis across several keys
-    (``root_cause``, ``problem_md``, ``slack_message``). Tests assert on
-    substring presence ("openclaw", "gateway", etc.) so we join the
-    fields once and let the test case do simple ``in`` checks.
+    Tests assert on substring presence ("openclaw", "gateway", "stdio",
+    etc.) so we join ``root_cause`` + ``problem_md`` + ``report`` once
+    and let the test case do simple ``in`` checks. ``report`` already
+    embeds the recommended-actions section, so callers don't need a
+    separate remediation accessor.
     """
     return " ".join(str(result.get(key, "")) for key in _SUMMARY_KEYS).lower()
-
-
-def remediation_text(result: dict[str, Any]) -> str:
-    """Lowercase remediation field, falling back to legacy ``remediation``.
-
-    The CLI return shape uses ``remediation_steps``; older state dicts
-    used ``remediation``. The fallback keeps the assertion stable as
-    that key migrates.
-    """
-    for key in _REMEDIATION_KEYS:
-        value = result.get(key)
-        if value:
-            return str(value).lower()
-    return ""
 
 
 def _build_annotations(failure_context: dict[str, Any], correlation_id: str) -> dict[str, Any]:

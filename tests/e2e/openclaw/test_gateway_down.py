@@ -77,11 +77,7 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
     Real LLM call inside — count this as an integration cost when
     running locally. Skipped when no LLM credential is configured.
     """
-    from tests.e2e.openclaw.orchestrator import (
-        remediation_text,
-        run_openclaw_investigation,
-        summarize_result,
-    )
+    from tests.e2e.openclaw.orchestrator import run_openclaw_investigation, summarize_result
 
     handle = boot_openclaw(with_gateway=False)
     try:
@@ -103,9 +99,9 @@ def test_gateway_down_investigation_identifies_openclaw_and_remediation() -> Non
 
     # Remediation should steer the user back to running the Gateway or
     # restarting the bridge — either is a valid action that resolves
-    # the ECONNREFUSED failure.
-    combined = f"{summary} {remediation_text(result)}"
-    assert ("openclaw gateway" in combined) or ("openclaw mcp" in combined), result
+    # the ECONNREFUSED failure. ``summary`` includes the report's
+    # "## Recommended Actions" section, so we check it directly.
+    assert ("openclaw gateway" in summary) or ("openclaw mcp" in summary), result
 
     # validity_score logged but not gated — see tests/e2e/openclaw/README.md
     # "Note on validity_score" for the deviation from #1484 AC.

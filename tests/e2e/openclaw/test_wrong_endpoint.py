@@ -69,11 +69,7 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     Real LLM call inside — count this as an integration cost when
     running locally. Skipped when no LLM credential is configured.
     """
-    from tests.e2e.openclaw.orchestrator import (
-        remediation_text,
-        run_openclaw_investigation,
-        summarize_result,
-    )
+    from tests.e2e.openclaw.orchestrator import run_openclaw_investigation, summarize_result
 
     handle = boot_openclaw(with_gateway=False)
     try:
@@ -88,9 +84,9 @@ def test_wrong_endpoint_investigation_steers_user_to_stdio() -> None:
     assert "openclaw" in summary, result
     # The RCA should call out either the Control UI mistake or the
     # stdio remediation — we accept either as evidence the misconfig
-    # hint propagated through the investigation surface.
-    combined = f"{summary} {remediation_text(result)}"
-    assert ("control ui" in combined) or ("stdio" in combined), result
+    # hint propagated through the investigation surface. ``summary``
+    # includes the report's "## Recommended Actions" section.
+    assert ("control ui" in summary) or ("stdio" in summary), result
 
     # validity_score logged but not gated — see tests/e2e/openclaw/README.md
     # "Note on validity_score" for the deviation from #1484 AC.
