@@ -114,10 +114,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Node 22 (OpenClaw requires >=22.12)
+      - name: Set up Node (OpenClaw requires >=22.12; version pinned in .nvmrc)
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: ".nvmrc"
 
       - name: Install OpenClaw CLI
         # ``continue-on-error: true`` so an npm-registry hiccup, a package-name
