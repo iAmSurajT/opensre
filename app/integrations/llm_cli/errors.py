@@ -23,3 +23,11 @@ class CLIAuthenticationRequired(RuntimeError):
         self.auth_hint = auth_hint
         self.detail = detail
         super().__init__(f"{provider} is not authenticated. {auth_hint} ({detail})")
+
+
+class CLITemporaryFailure(RuntimeError):
+    """The CLI subprocess exited with a transient / recoverable error (e.g. EX_TEMPFAIL 75).
+
+    This is an expected operational condition — not a code bug — so callers
+    should not forward it to error-tracking services like Sentry.
+    """

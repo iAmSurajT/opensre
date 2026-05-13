@@ -13,7 +13,11 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.integrations.llm_cli.base import CLIProbe, LLMCLIAdapter
-from app.integrations.llm_cli.errors import CLIAuthenticationRequired, CLITimeoutError
+from app.integrations.llm_cli.errors import (
+    CLIAuthenticationRequired,
+    CLITemporaryFailure,
+    CLITimeoutError,
+)
 from app.integrations.llm_cli.subprocess_env import build_cli_subprocess_env
 from app.integrations.llm_cli.text import flatten_messages_to_prompt
 from app.llm_reasoning_effort import get_active_reasoning_effort
@@ -165,6 +169,12 @@ class CLIBackedLLMClient:
                     auth_hint=self._adapter.auth_hint,
                     detail=base,
                 )
+            # EX_TEMPFAIL (75) signals a transient / recoverable subprocess error.
+            # Raise CLITemporaryFailure so Sentry ignores it and the CLI can
+            # surface a user-friendly message instead of a traceback.
+            if proc.returncode == 75 or "resume this session" in _base_lower:
+                raise CLITemporaryFailure(base)
+
             if auth_probe_unclear:
                 message = (
                     f"{base}\n\n"
